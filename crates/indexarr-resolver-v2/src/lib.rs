@@ -184,10 +184,16 @@ pub async fn fetch_from_peers(
     // FuturesUnordered<...> element type (each `async move` block otherwise
     // has its own anonymous type).
     type PinFut = std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<FetchedMetadata, ResolverError>> + Send>,
+        Box<
+            dyn std::future::Future<Output = (SocketAddr, Result<FetchedMetadata, ResolverError>)>
+                + Send,
+        >,
     >;
     let make_fut = |peer: SocketAddr| -> PinFut {
-        Box::pin(async move { fetch_from_peer(info_hash, peer, peer_id, config).await })
+        Box::pin(async move {
+            let result = fetch_from_peer(info_hash, peer, peer_id, config).await;
+            (peer, result)
+        })
     };
 
     while next_idx < cap {
@@ -196,12 +202,26 @@ pub async fn fetch_from_peers(
         in_flight.push(make_fut(peer));
     }
 
+    // Error type counters for the summary log when all peers fail.
+    let mut n_connect = 0u32;
+    let mut n_no_ext = 0u32;
+    let mut n_timeout = 0u32;
+    let mut n_other = 0u32;
     let mut last_err: Option<ResolverError> = None;
-    while let Some(result) = in_flight.next().await {
+
+    while let Some((peer, result)) = in_flight.next().await {
         match result {
             Ok(meta) => return Ok(meta),
             Err(e) => {
-                tracing::trace!(?info_hash, error = %e, "peer fetch failed");
+                match &e {
+                    ResolverError::Connect(_) => n_connect += 1,
+                    ResolverError::ExtendedNotSupported
+                    | ResolverError::NoUtMetadataId
+                    | ResolverError::NoMetadataSize => n_no_ext += 1,
+                    ResolverError::Timeout(_) => n_timeout += 1,
+                    _ => n_other += 1,
+                }
+                tracing::debug!(?peer, ?info_hash, error = %e, "BEP9 peer failed");
                 last_err = Some(e);
             }
         }
@@ -213,6 +233,15 @@ pub async fn fetch_from_peers(
         }
     }
 
+    tracing::debug!(
+        ?info_hash,
+        total = peers.len(),
+        connect_fail = n_connect,
+        no_bep10 = n_no_ext,
+        timeout = n_timeout,
+        other = n_other,
+        "all peers exhausted"
+    );
     Err(last_err.unwrap_or(ResolverError::UnexpectedEof))
 }
 
@@ -265,9 +294,11 @@ async fn fetch_inner(
     peer_addr: SocketAddr,
     peer_id: Id20,
 ) -> Result<FetchedMetadata, ResolverError> {
+    let t0 = std::time::Instant::now();
     let mut stream = TcpStream::connect(peer_addr)
         .await
         .map_err(ResolverError::Connect)?;
+    tracing::debug!(?peer_addr, ms = t0.elapsed().as_millis(), "TCP connected");
 
     // ─── BitTorrent handshake (BEP 3) ────────────────────────────────────
     let our_handshake = Handshake::new(info_hash, peer_id);
@@ -283,9 +314,14 @@ async fn fetch_inner(
         return Err(ResolverError::HandshakeMismatch);
     }
     if !their_hs.supports_extended() {
+        tracing::debug!(
+            ?peer_addr,
+            ms = t0.elapsed().as_millis(),
+            "peer rejected: no BEP10 extension bit"
+        );
         return Err(ResolverError::ExtendedNotSupported);
     }
-    tracing::trace!(?peer_addr, ?info_hash, "bt handshake ok");
+    tracing::debug!(?peer_addr, ms = t0.elapsed().as_millis(), "BT handshake ok");
 
     // PEX harvest accumulator (BEP 11) — populated as ut_pex messages arrive.
     let mut harvested_peers: Vec<SocketAddr> = Vec::new();
@@ -302,7 +338,13 @@ async fn fetch_inner(
     if total_size > MAX_METADATA_SIZE {
         return Err(ResolverError::MetadataTooLarge(total_size));
     }
-    tracing::trace!(?peer_addr, ut_metadata_id, total_size, "ext handshake ok");
+    tracing::debug!(
+        ?peer_addr,
+        ut_metadata_id,
+        total_size,
+        ms = t0.elapsed().as_millis(),
+        "ext handshake ok"
+    );
 
     // ─── BEP 9 piece loop ──────────────────────────────────────────────
     let total_pieces = total_size.div_ceil(METADATA_PIECE_SIZE);

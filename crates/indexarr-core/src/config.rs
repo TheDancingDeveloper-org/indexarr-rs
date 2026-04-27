@@ -147,7 +147,7 @@ impl Settings {
             peer_refresh_batch: env_u32("INDEXARR_PEER_REFRESH_BATCH", 100),
 
             resolve_workers: env_u32("INDEXARR_RESOLVE_WORKERS", 20),
-            resolve_timeout: env_f64("INDEXARR_RESOLVE_TIMEOUT", 30.0),
+            resolve_timeout: env_f64("INDEXARR_RESOLVE_TIMEOUT", 15.0),
             save_files_threshold: env_u32("INDEXARR_SAVE_FILES_THRESHOLD", 200),
 
             announcer_enabled: env_bool("INDEXARR_ANNOUNCER_ENABLED", true),

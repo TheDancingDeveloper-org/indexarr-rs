@@ -159,12 +159,26 @@ impl DhtEngine {
         self.instances.get(index)
     }
 
-    /// Discover peers for specific info_hashes by querying DHT.
+    /// Discover peers for specific info_hashes by querying DHT concurrently.
+    ///
+    /// All hashes are queried in parallel (one future per hash, fanned across
+    /// DHT instances round-robin). Previously this was sequential: N hashes ×
+    /// 2 s/hash = up to 80 s per batch for N=40.
     pub async fn discover_peers(
         &self,
         info_hashes: &[String],
     ) -> dashmap::DashMap<String, Vec<SocketAddr>> {
+        use futures::stream::{FuturesUnordered, StreamExt as FuturesStreamExt};
+
         let results = dashmap::DashMap::new();
+        if self.instances.is_empty() || info_hashes.is_empty() {
+            return results;
+        }
+
+        let instance_count = self.instances.len();
+        type DiscoverFut =
+            std::pin::Pin<Box<dyn std::future::Future<Output = (String, Vec<SocketAddr>)> + Send>>;
+        let mut futs: FuturesUnordered<DiscoverFut> = FuturesUnordered::new();
 
         for (i, hash_hex) in info_hashes.iter().enumerate() {
             if self.cancel.is_cancelled() {
@@ -182,33 +196,34 @@ impl DhtEngine {
             id_bytes.copy_from_slice(&hash_bytes);
             let id = Id20::new(id_bytes);
 
-            let idx = i % self.instances.len().max(1);
-            if let Some(dht) = self.instances.get(idx) {
+            // Dht = Arc<DhtState>, so clone is just an Arc ref-count bump.
+            let dht = self.instances[i % instance_count].clone();
+            let hash_hex = hash_hex.clone();
+
+            futs.push(Box::pin(async move {
                 let mut stream = dht.get_peers(id, None);
+                let mut peers = Vec::new();
                 let timeout = tokio::time::sleep(std::time::Duration::from_secs(2));
                 tokio::pin!(timeout);
-
-                use tokio_stream::StreamExt;
-                let mut peers = Vec::new();
-
                 loop {
                     tokio::select! {
-                        peer = stream.next() => {
-                            match peer {
-                                Some(addr) => {
-                                    peers.push(addr);
-                                    if peers.len() >= 15 { break; }
-                                }
-                                None => break,
+                        peer = tokio_stream::StreamExt::next(&mut stream) => match peer {
+                            Some(addr) => {
+                                peers.push(addr);
+                                if peers.len() >= 15 { break; }
                             }
-                        }
+                            None => break,
+                        },
                         () = &mut timeout => break,
                     }
                 }
+                (hash_hex, peers)
+            }));
+        }
 
-                if !peers.is_empty() {
-                    results.insert(hash_hex.clone(), peers);
-                }
+        while let Some((hash, peers)) = futs.next().await {
+            if !peers.is_empty() {
+                results.insert(hash, peers);
             }
         }
 
