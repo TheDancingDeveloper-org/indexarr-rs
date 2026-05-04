@@ -46,7 +46,7 @@ pub struct GetRecordResponse {
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new().route(
-        "/api/v1/peer-records/:device_id",
+        "/api/v1/peer-records/{device_id}",
         put(put_record).get(get_record),
     )
 }
