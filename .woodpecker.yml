@@ -147,6 +147,8 @@ steps:
     environment:
       GIT_AUTH_TOKEN:
         from_secret: git_auth_token
+      PLUGIN_PASSWORD:
+        from_secret: gh_release_token
     when:
       - event: push
         branch: main
@@ -188,6 +190,8 @@ steps:
     environment:
       GIT_AUTH_TOKEN:
         from_secret: git_auth_token
+      PLUGIN_PASSWORD:
+        from_secret: gh_release_token
     when:
       - event: tag
 
