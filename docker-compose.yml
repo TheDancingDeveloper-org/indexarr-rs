@@ -9,6 +9,7 @@ name: indexarr
 services:
   postgres:
     image: postgres:17-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: indexarr
       POSTGRES_PASSWORD: indexarr
@@ -24,9 +25,9 @@ services:
       retries: 5
 
   indexarr:
-    build:
-      context: .
-    # image: ghcr.io/ausagentsmith-org/indexarr-rs:latest
+    image: ghcr.io/ausagentsmith-org/indexarr-rs:latest
+    # build:
+    #   context: .
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,6 +53,7 @@ services:
       - "6881-6884:6881-6884/udp"
       - "6890:6890"
       - "6895:6895/udp"
+    restart: unless-stopped
     volumes:
       - indexarr-data:/app/data
     command: ["--all"]
