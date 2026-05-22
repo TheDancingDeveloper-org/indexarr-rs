@@ -13,33 +13,49 @@ RUN npm run build
 # =============================================================================
 # Stage 2: Build Rust binary
 # =============================================================================
-FROM rust:1-bookworm AS rust-builder
+# Always build on the host platform to avoid QEMU for Rust compilation.
+# Cross-compilation to arm64 is done via the aarch64-linux-gnu toolchain.
+FROM --platform=$BUILDPLATFORM rust:1-bookworm AS rust-builder
 
-# GIT_AUTH_TOKEN is the Forgejo bearer token used to fetch librtbit-* deps from
-# the Forgejo cargo registry. Passed in as a build_arg from .woodpecker.yml.
-# PLUGIN_PASSWORD is the fallback when running under woodpeckerci/plugin-docker-buildx
-# without an explicit build_args entry (the plugin auto-exposes its `password:`
-# field as $PLUGIN_PASSWORD inside the build context).
 ARG GIT_AUTH_TOKEN=""
 ARG PLUGIN_PASSWORD=""
+# Set by Docker buildx: amd64 or arm64
+ARG TARGETARCH
 
 WORKDIR /build
 
-# Wire up the Forgejo cargo registry inside the builder. Mirrors the project's
-# .cargo/config.toml so deps with `registry = "forgejo"` resolve at build time.
 RUN printf '[registries.forgejo]\nindex = "sparse+https://repo.indexarr.net/api/packages/indexarr/cargo/"\ncredential-provider = "cargo:token"\n\n[registry]\ndefault = "forgejo"\n' > $CARGO_HOME/config.toml && \
     TOKEN="${GIT_AUTH_TOKEN:-$PLUGIN_PASSWORD}" && \
     printf '[registries.forgejo]\ntoken = "Bearer %s"\n' "$TOKEN" > $CARGO_HOME/credentials.toml
+
+# Install the aarch64 cross-compilation toolchain when targeting arm64
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends \
+        gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross cmake && \
+      rustup target add aarch64-unknown-linux-gnu; \
+    fi
 
 # Cache dependencies by building a dummy project first
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ crates/
 RUN mkdir -p src && echo 'fn main() {}' > src/main.rs && \
-    cargo build --release 2>/dev/null || true
+    if [ "$TARGETARCH" = "arm64" ]; then \
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+        cargo build --release --target aarch64-unknown-linux-gnu --features vendored-ssl 2>/dev/null || true; \
+    else \
+      cargo build --release 2>/dev/null || true; \
+    fi
 
 # Build the real binary
 COPY src/ src/
-RUN touch src/main.rs && cargo build --release
+RUN touch src/main.rs && \
+    if [ "$TARGETARCH" = "arm64" ]; then \
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+        cargo build --release --target aarch64-unknown-linux-gnu --features vendored-ssl && \
+      cp target/aarch64-unknown-linux-gnu/release/indexarr target/release/indexarr; \
+    else \
+      cargo build --release; \
+    fi
 
 # =============================================================================
 # Stage 3: Runtime image (minimal)
