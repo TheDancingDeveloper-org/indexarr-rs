@@ -172,24 +172,24 @@ steps:
   # ── Docker → GHCR ────────────────────────────────────────────────────────────
 
   - name: build-and-push
-    image: woodpeckerci/plugin-docker-buildx
+    image: docker:27
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    settings:
-      repo: ghcr.io/ausagentsmith-org/indexarr-rs
-      registry: ghcr.io
-      username: AusAgentSmith
-      password:
-        from_secret: gh_release_token
-      platforms: linux/amd64,linux/arm64
-      tags:
-        - latest
-        - ${CI_COMMIT_SHA}
-      build_args:
-        - GIT_AUTH_TOKEN
     environment:
       GIT_AUTH_TOKEN:
         from_secret: git_auth_token
+      GHCR_TOKEN:
+        from_secret: gh_release_token
+    commands:
+      - echo "$GHCR_TOKEN" | docker login ghcr.io -u AusAgentSmith --password-stdin
+      - docker buildx create --name multiarch --use
+      - docker buildx build
+          --platform linux/amd64,linux/arm64
+          --build-arg GIT_AUTH_TOKEN="$GIT_AUTH_TOKEN"
+          -t ghcr.io/ausagentsmith-org/indexarr-rs:latest
+          -t ghcr.io/ausagentsmith-org/indexarr-rs:$CI_COMMIT_SHA
+          --push .
+      - docker buildx rm multiarch
     when:
       - event: push
         branch: main
@@ -218,24 +218,24 @@ steps:
         branch: main
 
   - name: build-and-push-release
-    image: woodpeckerci/plugin-docker-buildx
+    image: docker:27
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    settings:
-      repo: ghcr.io/ausagentsmith-org/indexarr-rs
-      registry: ghcr.io
-      username: AusAgentSmith
-      password:
-        from_secret: gh_release_token
-      platforms: linux/amd64,linux/arm64
-      tags:
-        - ${CI_COMMIT_TAG}
-        - latest
-      build_args:
-        - GIT_AUTH_TOKEN
     environment:
       GIT_AUTH_TOKEN:
         from_secret: git_auth_token
+      GHCR_TOKEN:
+        from_secret: gh_release_token
+    commands:
+      - echo "$GHCR_TOKEN" | docker login ghcr.io -u AusAgentSmith --password-stdin
+      - docker buildx create --name multiarch --use
+      - docker buildx build
+          --platform linux/amd64,linux/arm64
+          --build-arg GIT_AUTH_TOKEN="$GIT_AUTH_TOKEN"
+          -t ghcr.io/ausagentsmith-org/indexarr-rs:$CI_COMMIT_TAG
+          -t ghcr.io/ausagentsmith-org/indexarr-rs:latest
+          --push .
+      - docker buildx rm multiarch
     when:
       - event: tag
 
