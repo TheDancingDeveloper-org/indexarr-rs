@@ -17,16 +17,14 @@ RUN npm run build
 # Cross-compilation to arm64 is done via the aarch64-linux-gnu toolchain.
 FROM --platform=$BUILDPLATFORM rust:1-bookworm AS rust-builder
 
-ARG GIT_AUTH_TOKEN=""
-ARG PLUGIN_PASSWORD=""
 # Set by Docker buildx: amd64 or arm64
 ARG TARGETARCH
 
 WORKDIR /build
 
-RUN printf '[registries.forgejo]\nindex = "sparse+https://repo.indexarr.net/api/packages/indexarr/cargo/"\ncredential-provider = "cargo:token"\n\n[registry]\ndefault = "forgejo"\n' > $CARGO_HOME/config.toml && \
-    TOKEN="${GIT_AUTH_TOKEN:-$PLUGIN_PASSWORD}" && \
-    printf '[registries.forgejo]\ntoken = "Bearer %s"\n' "$TOKEN" > $CARGO_HOME/credentials.toml
+RUN --mount=type=secret,id=git_auth_token \
+    printf '[registries.forgejo]\nindex = "sparse+https://repo.indexarr.net/api/packages/indexarr/cargo/"\ncredential-provider = "cargo:token"\n\n[registry]\ndefault = "forgejo"\n' > $CARGO_HOME/config.toml && \
+    printf '[registries.forgejo]\ntoken = "Bearer %s"\n' "$(cat /run/secrets/git_auth_token)" > $CARGO_HOME/credentials.toml
 
 # Install the aarch64 cross-compilation toolchain when targeting arm64
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
