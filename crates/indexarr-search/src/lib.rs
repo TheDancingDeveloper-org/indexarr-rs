@@ -321,11 +321,12 @@ async fn execute_search_query(
          WHERE {where_clause} ORDER BY {order_clause} LIMIT ${limit_param} OFFSET ${offset_param}"
     );
 
-    // Build and bind the count query
-    let mut count_query = sqlx::query_scalar::<_, i64>(&count_sql);
+    // The dynamic fragments above come exclusively from closed enums and
+    // hard-coded column names; all user-provided values remain bind parameters.
+    let mut count_query = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
 
     // Build and bind the data query
-    let mut data_query = sqlx::query(&data_sql);
+    let mut data_query = sqlx::query(sqlx::AssertSqlSafe(data_sql));
 
     // Bind all parameters in order
     // FTS query
@@ -543,7 +544,9 @@ async fn facet_query_limit(
          ORDER BY count DESC \
          LIMIT $1"
     );
-    let rows = sqlx::query_as::<_, (String, i64)>(&sql)
+    // Callers supply only the hard-coded table and column names listed in
+    // `compute_facets`; the limit remains a bind parameter.
+    let rows = sqlx::query_as::<_, (String, i64)>(sqlx::AssertSqlSafe(sql))
         .bind(limit)
         .fetch_all(pool)
         .await?;

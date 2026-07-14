@@ -152,7 +152,7 @@ impl ContributorIdentity {
     }
 
     fn generate_new(&mut self) -> Result<String> {
-        let mut csprng = rand::rngs::OsRng;
+        let mut csprng = rand::rand_core::UnwrapErr(rand::rngs::SysRng);
         let signing_key = SigningKey::generate(&mut csprng);
         self.contributor_id = Some(derive_id(&signing_key));
 
@@ -339,3 +339,45 @@ impl BanList {
 
 // Re-export hex for convenience
 pub use hex;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_dir(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "indexarr-identity-{label}-{}-{:016x}",
+            std::process::id(),
+            rand::random::<u64>()
+        ))
+    }
+
+    #[test]
+    fn generated_identity_round_trips_recovery_and_signatures() {
+        let first_dir = temp_dir("generate");
+        let restored_dir = temp_dir("restore");
+
+        let mut generated = ContributorIdentity::new(&first_dir);
+        let (is_new, recovery_key) = generated.load_or_generate().unwrap();
+        assert!(is_new);
+        let recovery_key = recovery_key.unwrap();
+
+        let contributor_id = generated.contributor_id().unwrap().to_owned();
+        let public_key = generated.public_key_b64().unwrap();
+        let payload = b"dependency-upgrade-regression";
+        let signature = BASE64.encode(generated.sign(payload).unwrap());
+        assert!(verify_signature(&public_key, &signature, payload));
+        assert!(!verify_signature(&public_key, &signature, b"tampered"));
+
+        let mut restored = ContributorIdentity::new(&restored_dir);
+        restored.restore_from_recovery_key(&recovery_key).unwrap();
+        assert_eq!(restored.contributor_id(), Some(contributor_id.as_str()));
+        assert_eq!(
+            restored.public_key_b64().as_deref(),
+            Some(public_key.as_str())
+        );
+
+        let _ = std::fs::remove_dir_all(first_dir);
+        let _ = std::fs::remove_dir_all(restored_dir);
+    }
+}

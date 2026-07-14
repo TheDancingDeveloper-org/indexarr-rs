@@ -9,14 +9,14 @@ description = "BEP 51 (DHT Infohash Indexing) message types and codec, staging g
 workspace = true
 
 [dependencies]
-# Pulled from the Forgejo cargo registry (same 0.1.1 as crates.io, just sourced
-# uniformly across the indexarr-rs workspace — the workspace consumes
+# Pulled from the Forgejo cargo registry and sourced uniformly across the
+# indexarr-rs workspace — the workspace consumes
 # librtbit-peer-protocol from Forgejo and cargo treats the same crate from two
 # sources as two distinct crates, so all librtbit-* deps must agree on source).
 # Aliased to `bencode` to match the rest of the librtbit family's import style;
 # eases upstreaming this code into librtbit-dht later.
-bencode = { version = "0.1.1", package = "librtbit-bencode", registry = "forgejo" }
-librtbit-core = { version = "0.1.1", default-features = false, registry = "forgejo" }
+bencode = { version = "0.1.5", package = "librtbit-bencode", registry = "forgejo" }
+librtbit-core = { version = "0.1.5", default-features = false, registry = "forgejo" }
 
 serde = { workspace = true }
 thiserror = { workspace = true }

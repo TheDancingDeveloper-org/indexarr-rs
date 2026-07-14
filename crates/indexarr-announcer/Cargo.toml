@@ -24,6 +24,6 @@ url.workspace = true
 
 # UDP tracker scrape (BEP 15) — same lib the resolver uses for peer discovery,
 # pulled here so we can announce-with-counts against UDP-only trackers.
-tracker_comms = { version = "0.1.4", package = "librtbit-tracker-comms", registry = "forgejo" }
-librtbit-core = { version = "0.1.1", default-features = false, registry = "forgejo" }
+tracker_comms = { version = "0.1.6", package = "librtbit-tracker-comms", registry = "forgejo" }
+librtbit-core = { version = "0.1.5", default-features = false, registry = "forgejo" }
 anyhow.workspace = true

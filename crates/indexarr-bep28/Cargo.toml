@@ -11,7 +11,7 @@ workspace = true
 [dependencies]
 # Aliased to `bencode` to match the librtbit family's import style; eases
 # upstreaming this code into librtbit-peer-protocol later.
-bencode = { version = "0.1.1", package = "librtbit-bencode", registry = "forgejo" }
+bencode = { version = "0.1.5", package = "librtbit-bencode", registry = "forgejo" }
 
 serde = { workspace = true }
 thiserror = { workspace = true }

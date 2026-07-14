@@ -139,10 +139,10 @@ pub async fn apply_epoch_declaration(
         let _ = sqlx::query("DELETE FROM torrents WHERE source = 'sync'")
             .execute(pool)
             .await;
-        let _ = sqlx::query(&format!(
-            "UPDATE torrents SET sync_sequence = NULL, epoch = {} WHERE source != 'sync'",
-            decl.epoch
-        ))
+        let _ = sqlx::query(
+            "UPDATE torrents SET sync_sequence = NULL, epoch = $1 WHERE source != 'sync'",
+        )
+        .bind(decl.epoch)
         .execute(pool)
         .await;
     } else {

@@ -233,7 +233,9 @@ async fn do_search(state: &AppState, params: &TorznabParams) -> Result<String, s
          ORDER BY t.resolved_at DESC LIMIT {limit} OFFSET {offset}"
     );
 
-    let mut query = sqlx::query(&sql);
+    // Conditions are selected from hard-coded fragments above; user values
+    // continue to use bind parameters, and limit/offset are clamped integers.
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(sql));
 
     // Bind in order: strings first, then ints (matching how we built the params)
     // This is a simplified approach — for production we'd use a proper query builder

@@ -124,6 +124,7 @@ impl TrackerDiscovery {
             self.announce_port,
             self.reqwest_client.clone(),
             Some(self.udp_client.clone()),
+            None, // per-tracker status registry is not needed for one-shot discovery
         );
         let Some(mut stream) = stream else {
             return Vec::new();

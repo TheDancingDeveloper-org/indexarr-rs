@@ -12,18 +12,18 @@ workspace = true
 # All librtbit-* deps must be unified on the Forgejo registry — see .cargo/config.toml
 # and bep-uplift.md Phase A inventory. cargo treats the same crate@version sourced
 # from crates.io vs Forgejo as two distinct crates, which breaks trait coherence.
-peer_protocol = { version = "0.1.2", package = "librtbit-peer-protocol", registry = "forgejo" }
+peer_protocol = { version = "0.1.4", package = "librtbit-peer-protocol", registry = "forgejo" }
 
 # BEP 28 lt_tex codec (workspace-internal, staging for upstreaming).
 indexarr-bep28 = { path = "../indexarr-bep28" }
-librtbit-core = { version = "0.1.1", default-features = false, registry = "forgejo" }
-buffers = { version = "0.1.1", package = "librtbit-buffers", registry = "forgejo" }
-bencode = { version = "0.1.1", package = "librtbit-bencode", registry = "forgejo" }
+librtbit-core = { version = "0.1.5", default-features = false, registry = "forgejo" }
+buffers = { version = "0.1.2", package = "librtbit-buffers", registry = "forgejo" }
+bencode = { version = "0.1.5", package = "librtbit-bencode", registry = "forgejo" }
 
 tokio = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-sha1 = "0.10"
+sha1 = "0.11"
 rand = { workspace = true }
 serde = { workspace = true }
 futures = "0.3"

@@ -3,7 +3,6 @@ use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
 use librtbit_core::hash_id::Id20;
-use rand::RngCore;
 use sqlx::{PgPool, Row};
 use tokio::net::lookup_host;
 use tokio_util::sync::CancellationToken;
@@ -70,7 +69,7 @@ impl TorrentAnnouncer {
     pub fn new(pool: PgPool, config: AnnouncerConfig) -> Self {
         let mut bytes = [0u8; 20];
         bytes[..8].copy_from_slice(b"-IDXR01-");
-        rand::thread_rng().fill_bytes(&mut bytes[8..]);
+        rand::fill(&mut bytes[8..]);
         Self {
             pool,
             settings: config,

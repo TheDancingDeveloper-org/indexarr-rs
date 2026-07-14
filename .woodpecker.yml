@@ -17,13 +17,13 @@ steps:
   # ── Code quality ─────────────────────────────────────────────────────────────
 
   - name: fmt
-    image: rust:1.88-bookworm
+    image: rust:1.97-bookworm
     commands:
       - rustup component add rustfmt
       - cargo fmt --all -- --check
 
   - name: check
-    image: rust:1.88-bookworm
+    image: rust:1.97-bookworm
     environment:
       GIT_AUTH_TOKEN:
         from_secret: git_auth_token
@@ -32,7 +32,7 @@ steps:
       - cargo check --workspace
 
   - name: test
-    image: rust:1.88-bookworm
+    image: rust:1.97-bookworm
     environment:
       GIT_AUTH_TOKEN:
         from_secret: git_auth_token
@@ -41,7 +41,7 @@ steps:
       - cargo test --workspace
 
   - name: clippy
-    image: rust:1.88-bookworm
+    image: rust:1.97-bookworm
     environment:
       GIT_AUTH_TOKEN:
         from_secret: git_auth_token
@@ -63,7 +63,7 @@ steps:
   # ── Linux binary + tarball ───────────────────────────────────────────────────
 
   - name: build-linux
-    image: rust:1.88-bookworm
+    image: rust:1.97-bookworm
     environment:
       GIT_AUTH_TOKEN:
         from_secret: git_auth_token
@@ -95,7 +95,7 @@ steps:
   # ── Linux ARM64 binary + tarball ────────────────────────────────────────────
 
   - name: build-linux-arm64
-    image: rust:1.88-bookworm
+    image: rust:1.97-bookworm
     environment:
       GIT_AUTH_TOKEN:
         from_secret: git_auth_token
@@ -132,7 +132,7 @@ steps:
   # ── Windows binary + NSIS installer ─────────────────────────────────────────
 
   - name: build-windows
-    image: rust:1.88-bookworm
+    image: rust:1.97-bookworm
     environment:
       GIT_AUTH_TOKEN:
         from_secret: git_auth_token

@@ -134,10 +134,9 @@ pub struct FetchedMetadata {
 
 /// Generate a fresh peer_id with the standard rtbit-style prefix.
 pub fn random_peer_id() -> Id20 {
-    use rand::RngCore;
     let mut bytes = [0u8; 20];
     bytes[..8].copy_from_slice(b"-IDXR01-");
-    rand::thread_rng().fill_bytes(&mut bytes[8..]);
+    rand::fill(&mut bytes[8..]);
     Id20::new(bytes)
 }
 
