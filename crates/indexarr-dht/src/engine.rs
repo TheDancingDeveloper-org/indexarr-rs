@@ -75,83 +75,17 @@ impl DhtEngine {
         }
     }
 
-    /// Run the active crawler loop — sends get_peers queries with random
-    /// info_hashes to discover peers and expand routing tables.
-    pub async fn run_crawler(&self) {
-        tracing::info!("starting active DHT crawler");
-
-        // Wait for routing tables to populate
-        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-
-        let mut round = 0u64;
-        loop {
-            if self.cancel.is_cancelled() {
-                break;
-            }
-
-            // Generate random info_hash to query
-            let random_hash = Id20::new(rand::random());
-
-            // Round-robin across instances
-            let idx = (round as usize) % self.instances.len().max(1);
-            if let Some(dht) = self.instances.get(idx) {
-                // get_peers returns a stream of peer addresses
-                let mut stream = dht.get_peers(random_hash, None);
-
-                // Collect peers for a short time window
-                let timeout = tokio::time::sleep(std::time::Duration::from_secs(2));
-                tokio::pin!(timeout);
-
-                use tokio_stream::StreamExt;
-                let info_hash_hex = hex::encode(random_hash.0);
-                let mut peer_count = 0u32;
-
-                loop {
-                    tokio::select! {
-                        peer = stream.next() => {
-                            match peer {
-                                Some(addr) => {
-                                    self.shared.push_hash(crate::DiscoveredHash {
-                                        info_hash: info_hash_hex.clone(),
-                                        peer_ip: Some(addr.ip().to_string()),
-                                        peer_port: Some(addr.port()),
-                                        source: "get_peers".to_string(),
-                                    });
-                                    peer_count += 1;
-                                }
-                                None => break,
-                            }
-                        }
-                        () = &mut timeout => break,
-                    }
-                }
-
-                if peer_count > 0 {
-                    tracing::trace!(hash = %info_hash_hex, peers = peer_count, "crawler discovered peers");
-                }
-            }
-
-            round += 1;
-
-            // Adaptive sleep: faster when routing tables are small
-            let sleep_ms = if round < 100 { 500 } else { 2000 };
-            tokio::time::sleep(std::time::Duration::from_millis(sleep_ms)).await;
-
-            // Periodic stats
-            if round.is_multiple_of(100) {
-                let stats = self.stats();
-                tracing::info!(
-                    round,
-                    routing_nodes = stats.total_routing_nodes,
-                    queue = stats.hash_queue_size,
-                    cache = stats.peer_cache_size,
-                    "crawler stats"
-                );
-                self.shared.evict_if_needed();
-            }
-        }
-
-        tracing::info!("DHT crawler stopped");
+    /// Snapshot known IPv4 routing nodes for protocols, such as BEP 51,
+    /// which are not implemented by the underlying DHT client.
+    pub fn routing_nodes_v4(&self) -> Vec<SocketAddr> {
+        self.instances
+            .iter()
+            .flat_map(|dht| {
+                dht.with_routing_tables(|v4, _| {
+                    v4.iter().map(|node| node.addr()).collect::<Vec<_>>()
+                })
+            })
+            .collect()
     }
 
     /// Get a reference to a DHT instance for peer discovery.

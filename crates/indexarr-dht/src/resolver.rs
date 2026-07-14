@@ -152,8 +152,16 @@ impl MetadataResolver {
                         return;
                     }
 
-                    // Increment resolve attempts
-                    let _ = sqlx::query("UPDATE torrents SET resolve_attempts = resolve_attempts + 1 WHERE info_hash = $1")
+                    // Reserve this attempt before doing network I/O. The
+                    // exponential retry time prevents the main loop from
+                    // scheduling the same failing hash in a rapid burst.
+                    let _ = sqlx::query(
+                        "UPDATE torrents \
+                         SET resolve_attempts = resolve_attempts + 1, \
+                             retry_after = NOW() + (LEAST(86400::double precision, \
+                                 30 * power(2, LEAST(resolve_attempts, 12))) * INTERVAL '1 second') \
+                         WHERE info_hash = $1",
+                    )
                         .bind(&hash)
                         .execute(&pool)
                         .await;
@@ -260,7 +268,7 @@ impl MetadataResolver {
                 "SELECT info_hash FROM torrents \
                  WHERE info_hash = ANY($1) \
                    AND resolved_at IS NULL \
-                   AND resolve_attempts < 5 \
+                   AND (retry_after IS NULL OR retry_after <= NOW()) \
                    AND source != 'uploaded' \
                  ORDER BY priority DESC, observations DESC \
                  LIMIT $2",
@@ -281,10 +289,10 @@ impl MetadataResolver {
                 if let Ok(more) = sqlx::query(
                     "SELECT info_hash FROM torrents \
                      WHERE resolved_at IS NULL \
-                       AND resolve_attempts < 5 \
+                       AND (retry_after IS NULL OR retry_after <= NOW()) \
                        AND source != 'uploaded' \
                      ORDER BY priority DESC, \
-                              CASE WHEN source IN ('announce', 'get_peers') THEN 0 ELSE 1 END, \
+                              CASE WHEN source = 'announce' THEN 0 ELSE 1 END, \
                               observations DESC, \
                               discovered_at DESC \
                      LIMIT $1",
@@ -308,10 +316,10 @@ impl MetadataResolver {
         sqlx::query(
             "SELECT info_hash FROM torrents \
              WHERE resolved_at IS NULL \
-               AND resolve_attempts < 5 \
+               AND (retry_after IS NULL OR retry_after <= NOW()) \
                AND source != 'uploaded' \
              ORDER BY priority DESC, \
-                      CASE WHEN source IN ('announce', 'get_peers') THEN 0 ELSE 1 END, \
+                      CASE WHEN source = 'announce' THEN 0 ELSE 1 END, \
                       observations DESC, \
                       discovered_at DESC \
              LIMIT $1",

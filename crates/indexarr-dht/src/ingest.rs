@@ -114,7 +114,6 @@ async fn upsert_hash(pool: &PgPool, hash: &DiscoveredHash) -> Result<bool, sqlx:
            observations = torrents.observations + 1, \
            source = CASE \
              WHEN $2 = 'announce' THEN 'announce' \
-             WHEN $2 = 'get_peers' AND torrents.source NOT IN ('announce') THEN 'get_peers' \
              ELSE torrents.source \
            END \
          RETURNING (xmax = 0) AS is_new",

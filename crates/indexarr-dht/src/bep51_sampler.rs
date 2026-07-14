@@ -5,11 +5,13 @@ use std::time::Duration;
 
 use dht::Id20;
 use indexarr_bep51::{
-    COMPACT_NODE_V4_LEN, SampleInfohashesArgs, decode_response, encode_query, iter_samples,
+    COMPACT_NODE_V4_LEN, SampleInfohashesArgs, SampleInfohashesRespOwned, decode_response,
+    encode_query, iter_samples, validate_response,
 };
 use tokio::net::UdpSocket;
 use tokio_util::sync::CancellationToken;
 
+use crate::engine::DhtEngine;
 use crate::{DhtSharedState, DiscoveredHash};
 
 /// Well-known DHT bootstrap nodes — used to seed the BEP 51 sampler's node
@@ -36,9 +38,16 @@ const QUERY_TIMEOUT: Duration = Duration::from_secs(5);
 /// Opens its own UDP socket and periodically issues `sample_infohashes` KRPC
 /// queries (BEP 51) to known DHT nodes, feeding discovered info_hashes into
 /// `shared` and expanding the node queue from each response's `nodes` field.
-pub async fn run_bep51_sampler(shared: Arc<DhtSharedState>, cancel: CancellationToken) {
+pub async fn run_bep51_sampler(
+    shared: Arc<DhtSharedState>,
+    engine: Arc<DhtEngine>,
+    cancel: CancellationToken,
+) {
     // Wait for the DHT to warm up before we start hammering nodes.
-    tokio::time::sleep(Duration::from_secs(45)).await;
+    tokio::select! {
+        () = tokio::time::sleep(Duration::from_secs(45)) => {}
+        () = cancel.cancelled() => return,
+    }
 
     let socket = match UdpSocket::bind("0.0.0.0:0").await {
         Ok(s) => s,
@@ -57,7 +66,7 @@ pub async fn run_bep51_sampler(shared: Arc<DhtSharedState>, cancel: Cancellation
     let mut txn_counter: u16 = 0;
     let mut recv_buf = vec![0u8; 4096];
 
-    seed_queue(&mut node_queue).await;
+    seed_queue(&mut node_queue, &engine).await;
 
     let mut total_samples: u64 = 0;
 
@@ -69,7 +78,7 @@ pub async fn run_bep51_sampler(shared: Arc<DhtSharedState>, cancel: Cancellation
         // Refill queue from bootstrap if exhausted.
         if node_queue.is_empty() {
             tracing::debug!("BEP 51 sampler: node queue empty, reseeding");
-            seed_queue(&mut node_queue).await;
+            seed_queue(&mut node_queue, &engine).await;
             if node_queue.is_empty() {
                 tokio::time::sleep(Duration::from_secs(10)).await;
                 continue;
@@ -101,9 +110,14 @@ pub async fn run_bep51_sampler(shared: Arc<DhtSharedState>, cancel: Cancellation
         let recv_result =
             tokio::time::timeout(QUERY_TIMEOUT, socket.recv_from(&mut recv_buf)).await;
 
-        if let Ok(Ok((len, _src))) = recv_result {
-            match decode_response(&recv_buf[..len]) {
-                Ok((_t, resp)) => {
+        if let Ok(Ok((len, src))) = recv_result {
+            if src != node {
+                tracing::trace!(expected = %node, actual = %src, "BEP 51: ignored response from unexpected node");
+                continue;
+            }
+
+            match decode_matching_response(&recv_buf[..len], &txn_id) {
+                Ok(resp) => {
                     // Push discovered info_hashes into the shared ingest queue.
                     let mut count = 0usize;
                     for hash_bytes in iter_samples(resp.samples.as_ref()) {
@@ -159,17 +173,90 @@ pub async fn run_bep51_sampler(shared: Arc<DhtSharedState>, cancel: Cancellation
     tracing::info!(total_samples, "BEP 51 sampler stopped");
 }
 
-async fn seed_queue(queue: &mut VecDeque<SocketAddr>) {
+/// Decode and validate the response to one in-flight query.
+///
+/// UDP transaction IDs are the only wire-level association between a query
+/// and response. Accepting a different transaction can attribute unrelated
+/// sample data to the current crawl.
+fn decode_matching_response(
+    buf: &[u8],
+    expected_txn: &[u8],
+) -> Result<SampleInfohashesRespOwned, indexarr_bep51::Bep51Error> {
+    let (txn, response) = decode_response(buf)?;
+    if txn.as_ref() != expected_txn {
+        return Err(indexarr_bep51::Bep51Error::TransactionMismatch);
+    }
+    validate_response(&response)?;
+    Ok(response)
+}
+
+async fn seed_queue(queue: &mut VecDeque<SocketAddr>, engine: &DhtEngine) {
+    // The well-known bootstrap routers are primarily a way to enter the DHT;
+    // they need not implement BEP 51 themselves. Seed from the warmed-up
+    // librtbit routing tables so the sampler reaches ordinary network nodes.
+    for addr in engine.routing_nodes_v4() {
+        if queue.len() >= MAX_QUEUE {
+            return;
+        }
+        if !queue.contains(&addr) {
+            queue.push_back(addr);
+        }
+    }
+
     for host in BOOTSTRAP {
         match tokio::net::lookup_host(host).await {
             Ok(addrs) => {
                 for addr in addrs {
-                    if queue.len() < MAX_QUEUE {
+                    if queue.len() < MAX_QUEUE && !queue.contains(&addr) {
                         queue.push_back(addr);
                     }
                 }
             }
             Err(e) => tracing::trace!(host, error = %e, "BEP 51: bootstrap lookup failed"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bencode::ByteBufOwned;
+    use indexarr_bep51::{SampleInfohashesResp, encode_response};
+
+    use super::*;
+
+    fn response(samples: Vec<u8>) -> Vec<u8> {
+        encode_response(
+            b"tx",
+            &SampleInfohashesResp {
+                id: Id20::new([3; 20]),
+                interval: 60,
+                nodes: ByteBufOwned::default(),
+                nodes6: None,
+                num: 1,
+                samples: ByteBufOwned::from(samples),
+            },
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn crawler_ingests_sampled_hash_not_random_query_target() {
+        let query_target = [7; 20];
+        let sampled_hash = [9; 20];
+        let decoded = decode_matching_response(&response(sampled_hash.to_vec()), b"tx").unwrap();
+        let hashes: Vec<&[u8]> = iter_samples(decoded.samples.as_ref()).collect();
+
+        assert_eq!(hashes, vec![sampled_hash.as_slice()]);
+        assert!(!hashes.contains(&query_target.as_slice()));
+    }
+
+    #[test]
+    fn crawler_rejects_response_for_another_transaction() {
+        let error = decode_matching_response(&response([[9; 20]].concat()), b"other").unwrap_err();
+
+        assert!(matches!(
+            error,
+            indexarr_bep51::Bep51Error::TransactionMismatch
+        ));
     }
 }

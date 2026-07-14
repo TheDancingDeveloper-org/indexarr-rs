@@ -21,6 +21,19 @@ async fn run_migrations(pool: &PgPool) -> Result<(), sqlx::Error> {
     // Create tables
     sqlx::raw_sql(SCHEMA_SQL).execute(pool).await?;
 
+    // Versions before the issue #3 fix inserted random get_peers lookup
+    // targets as if they were observed info-hashes. The get_peers source was
+    // exclusive to that broken crawler path, so unresolved rows from it are
+    // not valid discoveries and only cause guaranteed BEP 9 failures.
+    let removed =
+        sqlx::query("DELETE FROM torrents WHERE source = 'get_peers' AND resolved_at IS NULL")
+            .execute(pool)
+            .await?
+            .rows_affected();
+    if removed > 0 {
+        tracing::info!(rows = removed, "removed invalid random get_peers targets");
+    }
+
     // Set up full-text search trigger (PostgreSQL only)
     sqlx::raw_sql(SEARCH_VECTOR_TRIGGER_SQL)
         .execute(pool)

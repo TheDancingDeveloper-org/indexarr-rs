@@ -128,6 +128,8 @@ pub enum Bep51Error {
     TooManySamples(usize),
     #[error("missing required field: {0}")]
     MissingField(&'static str),
+    #[error("response transaction id does not match the query")]
+    TransactionMismatch,
 }
 
 /// Encode a `sample_infohashes` query to bencode.

@@ -13,7 +13,7 @@ use indexarr_web::state::AppState;
     version = "0.1.0"
 )]
 struct Cli {
-    /// Run all workers (http_server, dht_crawler, resolver, announcer, sync)
+    /// Run all workers
     #[arg(long)]
     all: bool,
 
@@ -40,6 +40,12 @@ struct Cli {
     /// Database URL
     #[arg(long)]
     db_url: Option<String>,
+}
+
+fn crawler_requested(workers: &[String]) -> bool {
+    workers
+        .iter()
+        .any(|worker| worker == "dht_crawler" || worker == "bep51_sampler")
 }
 
 #[tokio::main]
@@ -131,7 +137,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "announcer",
             "sync",
             "peer_refresher",
-            "bep51_sampler",
         ]
         .into_iter()
         .map(String::from)
@@ -243,14 +248,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .await;
                 }));
 
-                // Start crawler
-                if workers.iter().any(|w| w == "dht_crawler") {
-                    let crawler_engine = engine.clone();
-                    handles.push(tokio::spawn(async move {
-                        crawler_engine.run_crawler().await;
-                    }));
-                }
-
                 // Start resolver
                 if workers.iter().any(|w| w == "resolver") {
                     // Shared peer_id between BEP 9 fetches and tracker announces
@@ -306,16 +303,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }));
                 }
 
-                // BEP 51 DHT infohash sampler — sends sample_infohashes
-                // queries to DHT nodes and feeds discovered hashes into the
-                // shared ingest queue.
-                if workers.iter().any(|w| w == "bep51_sampler") && state.settings.dht_enable_bep51 {
+                // The crawler discovers real hashes with BEP 51. Keep
+                // `bep51_sampler` as a backwards-compatible worker alias.
+                // `get_peers` is only valid for peer lookup of a known hash;
+                // random get_peers targets must never be stored as torrents.
+                let crawl_requested = crawler_requested(&workers);
+                if crawl_requested && state.settings.dht_enable_bep51 {
                     let bep51_shared = dht_shared.clone();
+                    let bep51_engine = engine.clone();
                     let bep51_cancel = cancel.clone();
                     handles.push(tokio::spawn(async move {
-                        indexarr_dht::bep51_sampler::run_bep51_sampler(bep51_shared, bep51_cancel)
-                            .await;
+                        indexarr_dht::bep51_sampler::run_bep51_sampler(
+                            bep51_shared,
+                            bep51_engine,
+                            bep51_cancel,
+                        )
+                        .await;
                     }));
+                } else if crawl_requested {
+                    tracing::warn!(
+                        "DHT crawler disabled because INDEXARR_DHT_ENABLE_BEP51 is false"
+                    );
                 }
 
                 Some(engine)
@@ -426,5 +434,20 @@ fn log_identity(identity: &ContributorIdentity, is_new: bool, recovery_key: Opti
             id = identity.contributor_id().unwrap_or("?"),
             "loaded contributor identity"
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::crawler_requested;
+
+    #[test]
+    fn dht_crawler_uses_the_bep51_discovery_path() {
+        assert!(crawler_requested(&["dht_crawler".to_string()]));
+    }
+
+    #[test]
+    fn legacy_bep51_worker_name_remains_supported() {
+        assert!(crawler_requested(&["bep51_sampler".to_string()]));
     }
 }
