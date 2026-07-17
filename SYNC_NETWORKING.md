@@ -52,6 +52,7 @@ example, a VPN-assigned port can be used for both
 |---|---:|---|
 | `INDEXARR_SYNC_ENABLED` | `true` | Runs peer export, discovery, and gossip. |
 | `INDEXARR_XMPP_ENABLED` | `true` | Joins the Indexarr discovery MUC. |
+| `INDEXARR_XMPP_SERVER` | `conference.indexarr.net:5222` | DNS-only public Prosody endpoint used by the plaintext discovery connector. |
 | `INDEXARR_SYNC_PEERS` | `["https://bootstrap.indexarr.net"]` | Bootstrap services used for PEX and address discovery. |
 | `INDEXARR_SYNC_EXTERNAL_URL` | empty | Complete authoritative advertised URL. |
 | `INDEXARR_SYNC_EXTERNAL_SCHEME` | `http` | Scheme used with an automatically observed IP. |

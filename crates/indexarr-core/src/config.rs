@@ -236,7 +236,10 @@ impl Settings {
             xmpp_enabled: env_bool("INDEXARR_XMPP_ENABLED", true),
             xmpp_jid: env_str("INDEXARR_XMPP_JID", ""),
             xmpp_password: env_str("INDEXARR_XMPP_PASSWORD", ""),
-            xmpp_server: env_str("INDEXARR_XMPP_SERVER", ""),
+            xmpp_server: env_str(
+                "INDEXARR_XMPP_SERVER",
+                "conference.indexarr.net:5222",
+            ),
             xmpp_muc_room: env_str(
                 "INDEXARR_XMPP_MUC_ROOM",
                 "indexarr-sync@conference.indexarr.net",

@@ -3,14 +3,14 @@
 //! `tokio-xmpp` 4.0's stock `ServerConfig` (the `starttls` module) is
 //! hard-coded to require STARTTLS — if the server doesn't advertise it,
 //! the connection fails. That's a reasonable default for the public
-//! internet, but our XMPP server (Prosody on Vultr) is reached over
-//! Tailscale or by explicit `host:port` config, with the password
-//! derived deterministically from the contributor id (so confidentiality
-//! of the SASL exchange isn't load-bearing).
+//! internet, but the Indexarr discovery server deliberately accepts
+//! plaintext clients on its DNS-only public port. The generated password is
+//! derived deterministically from the public contributor id, so it is not a
+//! user secret and confidentiality of the SASL exchange is not load-bearing.
 //!
 //! This connector just opens a TCP stream and starts the XMPP session
-//! without any TLS upgrade. It's only used when `INDEXARR_XMPP_SERVER`
-//! is set explicitly; the default path still goes through SRV+STARTTLS.
+//! without any TLS upgrade. It is used whenever `INDEXARR_XMPP_SERVER` is set,
+//! including the public `conference.indexarr.net:5222` default.
 
 use std::io;
 
