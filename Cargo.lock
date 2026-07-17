@@ -1582,7 +1582,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "clap",
  "dotenvy",
@@ -1604,7 +1604,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-announcer"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1626,7 +1626,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-bep28"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "hex 0.4.3",
  "librtbit-bencode",
@@ -1636,7 +1636,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-bep51"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "hex 0.4.3",
  "librtbit-bencode",
@@ -1647,7 +1647,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-classifier"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "indexarr-parser",
  "once_cell",
@@ -1660,7 +1660,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-core"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "chrono",
  "clap",
@@ -1675,7 +1675,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-dht"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1708,7 +1708,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-identity"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base32",
  "base64",
@@ -1724,7 +1724,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-parser"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "once_cell",
  "regex",
@@ -1734,7 +1734,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-resolver-v2"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "futures",
  "hex 0.4.3",
@@ -1753,7 +1753,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-search"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "chrono",
  "indexarr-core",
@@ -1766,7 +1766,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-sync"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base64",
  "chrono",
@@ -1790,7 +1790,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-tmdb"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "reqwest",
  "serde",
@@ -1802,7 +1802,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-web"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "axum",
  "axum-extra",
@@ -1836,7 +1836,7 @@ dependencies = [
 
 [[package]]
 name = "indexarr-xmpp"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "futures",
  "indexarr-core",

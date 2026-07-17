@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Indexarr",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "description": "Decentralized torrent indexing with DHT crawling, content classification, gossip-based P2P sync, and contributor identity.\n\n## Authentication\n\nMost endpoints require no authentication. Admin endpoints (API key management, nuke review, debug logging) require an API key passed via the `X-Api-Key` header. The Torznab endpoint supports an optional `apikey` query parameter.\n\n## Base URL\n\nAll REST endpoints are prefixed with `/api/v1/`. The Torznab endpoint is at `/api/torznab`. GraphQL is at `/graphql`."
   },
   "servers": [
