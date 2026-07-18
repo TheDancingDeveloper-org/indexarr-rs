@@ -60,8 +60,19 @@ impl AnnouncerConfig {
             settle_time: settings.announcer_settle_time,
             rotate_interval: settings.announcer_rotate_interval,
             default_trackers: settings.default_trackers.clone(),
-            announce_port: settings.dht_base_port,
+            announce_port: effective_announce_port(
+                settings.dht_announce_port,
+                settings.dht_base_port,
+            ),
         }
+    }
+}
+
+fn effective_announce_port(override_port: u16, listen_port: u16) -> u16 {
+    if override_port == 0 {
+        listen_port
+    } else {
+        override_port
     }
 }
 
@@ -448,4 +459,19 @@ fn extract_bencode_int_bytes(data: &[u8], key: &[u8]) -> Option<i32> {
     }
     let end = after_key.iter().position(|&b| b == b'e')?;
     std::str::from_utf8(&after_key[1..end]).ok()?.parse().ok()
+}
+
+#[cfg(test)]
+mod config_tests {
+    use super::effective_announce_port;
+
+    #[test]
+    fn zero_announce_override_uses_dht_listen_port() {
+        assert_eq!(effective_announce_port(0, 6882), 6882);
+    }
+
+    #[test]
+    fn explicit_announce_override_can_differ_from_listen_port() {
+        assert_eq!(effective_announce_port(45_678, 6882), 45_678);
+    }
 }

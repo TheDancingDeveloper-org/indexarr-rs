@@ -46,6 +46,13 @@ The same numeric port can carry DHT over UDP and the sync API over TCP. For
 example, a VPN-assigned port can be used for both
 `INDEXARR_DHT_BASE_PORT` and `INDEXARR_SYNC_API_PORT`.
 
+When a gateway maps a random external port to a fixed internal listener, keep
+`INDEXARR_DHT_BASE_PORT` on the fixed listener and set
+`INDEXARR_DHT_ANNOUNCE_PORT` to the external lease. This changes tracker
+announces without changing the UDP bind. Indexarr's DHT crawler calls
+`librtbit-dht` peer discovery without an announce port, so it does not emit a
+second explicit `announce_peer` port.
+
 ## Relevant variables
 
 | Variable | Default | Purpose |
@@ -58,6 +65,7 @@ example, a VPN-assigned port can be used for both
 | `INDEXARR_SYNC_EXTERNAL_SCHEME` | `http` | Scheme used with an automatically observed IP. |
 | `INDEXARR_SYNC_EXTERNAL_PORT` | `0` | Explicit advertised port; zero selects the effective listener port. |
 | `INDEXARR_SYNC_API_PORT` | `0` | Optional restricted sync-only TCP listener. |
+| `INDEXARR_DHT_ANNOUNCE_PORT` | `0` | External tracker announce port; zero uses `INDEXARR_DHT_BASE_PORT`. |
 
 Wildcard, loopback, private, link-local, and otherwise non-public literal IP
 URLs are rejected during XMPP peer validation. An install that cannot discover

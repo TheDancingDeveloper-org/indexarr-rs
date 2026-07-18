@@ -34,6 +34,8 @@ pub struct Settings {
     // DHT engine
     pub dht_instances: u32,
     pub dht_base_port: u16,
+    /// External port advertised to trackers. Zero uses `dht_base_port`.
+    pub dht_announce_port: u16,
     pub dht_enable_bep51: bool,
     pub dht_crawl_interval: u64,
     pub peer_refresh_interval: u64,
@@ -143,6 +145,7 @@ impl Settings {
 
             dht_instances: env_u32("INDEXARR_DHT_INSTANCES", 4),
             dht_base_port: env_u16("INDEXARR_DHT_BASE_PORT", 6881),
+            dht_announce_port: env_u16("INDEXARR_DHT_ANNOUNCE_PORT", 0),
             dht_enable_bep51: env_bool("INDEXARR_DHT_ENABLE_BEP51", true),
             dht_crawl_interval: env_u64("INDEXARR_DHT_CRAWL_INTERVAL", 30),
             peer_refresh_interval: env_u64("INDEXARR_PEER_REFRESH_INTERVAL", 300),
