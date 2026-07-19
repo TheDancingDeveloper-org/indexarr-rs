@@ -73,6 +73,7 @@ Section "${APP_NAME}" SecMain
 
   ; Shortcuts + registry
   CreateDirectory "$SMPROGRAMS\${APP_NAME}"
+  CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" "--open-browser" "$INSTDIR\${APP_EXE}"
   CreateShortcut "$SMPROGRAMS\${APP_NAME}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\uninstall.exe"
 
   WriteUninstaller "$INSTDIR\uninstall.exe"
@@ -99,6 +100,7 @@ Section "Uninstall"
   RMDir "$INSTDIR"
 
   Delete "$SMPROGRAMS\${APP_NAME}\Uninstall ${APP_NAME}.lnk"
+  Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
   RMDir  "$SMPROGRAMS\${APP_NAME}"
 
   DeleteRegKey HKLM "Software\${APP_NAME}"

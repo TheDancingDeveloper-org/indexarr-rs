@@ -40,6 +40,10 @@ struct Cli {
     /// Internal: run under the Windows Service Control Manager.
     #[arg(long, hide = true)]
     service: bool,
+
+    /// Open the Indexarr web interface in the default browser after startup.
+    #[arg(long)]
+    open_browser: bool,
 }
 
 fn crawler_requested(workers: &[String]) -> bool {
@@ -138,6 +142,11 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let cli = Cli::parse();
+    // A direct Explorer launch should behave like a desktop app: start the
+    // configured workers and open the local web UI. Service launches pass
+    // --service and must remain headless.
+    #[cfg(windows)]
+    let open_browser = cli.open_browser || !cli.service;
 
     // Load settings from env, then apply CLI overrides
     let mut settings = Settings::from_env();
@@ -313,6 +322,13 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }));
         }
+    }
+
+    #[cfg(windows)]
+    if open_browser && !cli.service && workers.iter().any(|w| w == "http_server") {
+        tokio::spawn(async move {
+            open_browser_when_ready(port).await;
+        });
     }
 
     // DHT crawler + resolver + peer refresher + BEP 51 sampler all share
@@ -519,6 +535,26 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("shutdown complete");
     Ok(())
+}
+
+#[cfg(windows)]
+async fn open_browser_when_ready(port: u16) {
+    let url = format!("http://127.0.0.1:{port}/");
+    let client = reqwest::Client::new();
+    for _ in 0..120 {
+        if client
+            .get(format!("http://127.0.0.1:{port}/health"))
+            .send()
+            .await
+            .is_ok()
+        {
+            let _ = std::process::Command::new("cmd")
+                .args(["/C", "start", "", &url])
+                .spawn();
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
 }
 
 fn log_identity(identity: &ContributorIdentity, is_new: bool, recovery_key: Option<&str>) {

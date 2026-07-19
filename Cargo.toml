@@ -50,6 +50,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 dotenvy.workspace = true
 parking_lot.workspace = true
+reqwest.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows-service = "0.8"

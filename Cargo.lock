@@ -1596,6 +1596,7 @@ dependencies = [
  "indexarr-xmpp",
  "openssl",
  "parking_lot",
+ "reqwest",
  "tokio",
  "tokio-util",
  "tracing",
