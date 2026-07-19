@@ -29,31 +29,44 @@ Expand-Archive -Path $PgZip -DestinationPath $InstallDir -Force
 Remove-Item $PgZip -ErrorAction SilentlyContinue
 
 # ── 2. Initialise cluster ─────────────────────────────────────────────────────
-Log "Initialising database cluster at $pgData..."
-New-Item -ItemType Directory -Force -Path $pgData | Out-Null
-$rng    = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
-$bytes  = New-Object byte[] 24
-$rng.GetBytes($bytes)
-$pgPass = [System.Convert]::ToBase64String($bytes)
+$isNewCluster = -not (Test-Path "$pgData\PG_VERSION")
+$pgPass = $null
 $passTmp = "$env:TEMP\indexarr-pgpass.txt"
-$pgPass | Set-Content -NoNewline $passTmp
-
-& "$pgBin\initdb.exe" -D $pgData -U postgres --pwfile $passTmp --encoding=UTF8 --locale=C
-if ($LASTEXITCODE -ne 0) { throw "initdb failed (exit $LASTEXITCODE)" }
+if ($isNewCluster) {
+    Log "Initialising database cluster at $pgData..."
+    New-Item -ItemType Directory -Force -Path $pgData | Out-Null
+    if ((Get-ChildItem $pgData -Force | Select-Object -First 1)) {
+        throw "Database directory is not empty but contains no PostgreSQL cluster: $pgData"
+    }
+    $rng    = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
+    $bytes  = New-Object byte[] 24
+    $rng.GetBytes($bytes)
+    $pgPass = [System.Convert]::ToBase64String($bytes)
+    $pgPass | Set-Content -NoNewline $passTmp
+    & "$pgBin\initdb.exe" -D $pgData -U postgres --pwfile $passTmp --encoding=UTF8 --locale=C
+    if ($LASTEXITCODE -ne 0) { throw "initdb failed (exit $LASTEXITCODE)" }
+} else {
+    Log "Reusing existing database cluster at $pgData..."
+}
 
 # ── 3. Configure port ─────────────────────────────────────────────────────────
-(Get-Content "$pgData\postgresql.conf") -replace '#port = 5432', "port = $PgPort" |
-    Set-Content "$pgData\postgresql.conf"
-# The EDB binary bundle does not include the full timezone database.  Keep
-# installs portable across Windows regional settings instead of inheriting a
-# zone (for example Australia/Sydney) that PostgreSQL cannot resolve.
-Add-Content "$pgData\postgresql.conf" "`ntimezone = 'UTC'`nlog_timezone = 'UTC'"
+$pgConfig = "$pgData\postgresql.conf"
+$config = Get-Content $pgConfig
+$config = $config -replace '^\s*#?\s*port\s*=.*$', "port = $PgPort"
+$config = $config -replace '^\s*#?\s*timezone\s*=.*$', "timezone = 'UTC'"
+$config = $config -replace '^\s*#?\s*log_timezone\s*=.*$', "log_timezone = 'UTC'"
+$config | Set-Content $pgConfig
 
 # ── 4. Register + start PostgreSQL service ────────────────────────────────────
 Log "Registering PostgreSQL service..."
-& "$pgBin\pg_ctl.exe" register -N IndexarrPostgres -D $pgData -S auto
-if ($LASTEXITCODE -ne 0) { throw "pg_ctl register failed (exit $LASTEXITCODE)" }
-Start-Service IndexarrPostgres
+$pgService = Get-Service IndexarrPostgres -ErrorAction SilentlyContinue
+if (-not $pgService) {
+    & "$pgBin\pg_ctl.exe" register -N IndexarrPostgres -D $pgData -S auto
+    if ($LASTEXITCODE -ne 0) { throw "pg_ctl register failed (exit $LASTEXITCODE)" }
+}
+if ((Get-Service IndexarrPostgres).Status -ne 'Running') {
+    Start-Service IndexarrPostgres
+}
 
 Log "Waiting for PostgreSQL to be ready..."
 $ready = $false
@@ -65,13 +78,17 @@ for ($i = 0; $i -lt 30; $i++) {
 if (-not $ready) { throw "PostgreSQL did not become ready within 30 seconds" }
 
 # ── 5. Create role + database ─────────────────────────────────────────────────
-Log "Creating database..."
-$env:PGPASSWORD = $pgPass
-& "$pgBin\psql.exe" -p $PgPort -U postgres postgres -c "CREATE USER $PgUser WITH PASSWORD '$PgUser';"
-if ($LASTEXITCODE -ne 0) { throw "Failed to create role $PgUser" }
-& "$pgBin\psql.exe" -p $PgPort -U postgres postgres -c "CREATE DATABASE $PgDb OWNER $PgUser;"
-if ($LASTEXITCODE -ne 0) { throw "Failed to create database $PgDb" }
-$env:PGPASSWORD = ""
+if ($isNewCluster) {
+    Log "Creating database..."
+    $env:PGPASSWORD = $pgPass
+    & "$pgBin\psql.exe" -p $PgPort -U postgres postgres -c "CREATE USER $PgUser WITH PASSWORD '$PgUser';"
+    if ($LASTEXITCODE -ne 0) { throw "Failed to create role $PgUser" }
+    & "$pgBin\psql.exe" -p $PgPort -U postgres postgres -c "CREATE DATABASE $PgDb OWNER $PgUser;"
+    if ($LASTEXITCODE -ne 0) { throw "Failed to create database $PgDb" }
+    $env:PGPASSWORD = ""
+} else {
+    Log "Existing database cluster retained."
+}
 Remove-Item $passTmp -ErrorAction SilentlyContinue
 
 # ── 6. Write .env ─────────────────────────────────────────────────────────────
