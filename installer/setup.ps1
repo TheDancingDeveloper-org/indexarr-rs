@@ -55,6 +55,7 @@ $config = Get-Content $pgConfig
 $config = $config -replace '^\s*#?\s*port\s*=.*$', "port = $PgPort"
 $config = $config -replace '^\s*#?\s*timezone\s*=.*$', "timezone = 'UTC'"
 $config = $config -replace '^\s*#?\s*log_timezone\s*=.*$', "log_timezone = 'UTC'"
+$config = $config -replace '^\s*#?\s*dynamic_shared_memory_type\s*=.*$', "dynamic_shared_memory_type = mmap"
 $config | Set-Content $pgConfig
 
 # ── 4. Register + start PostgreSQL service ────────────────────────────────────
