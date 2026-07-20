@@ -125,7 +125,7 @@ Per-crate checklist before `cargo publish` to crates.io:
 - [ ] `description` is accurate (fix `librtbit-tracker-comms` and `librtbit-lsd` first)
 - [ ] `keywords` (max 5) — picks: `bittorrent`, `dht`, `bep`, `p2p`, `protocol`
 - [ ] `categories` — `network-programming`, `parsing`, `asynchronous`
-- [ ] `repository = "https://github.com/Sprooty/rustTorrent"` (or equivalent)
+- [ ] `repository = "https://github.com/TheDancingDeveloper-org/rustTorrent"`
 - [ ] `homepage`, `documentation` URLs (docs.rs auto)
 - [ ] `license` declared (MPL-2.0 to match upstream xmpp-rs convention? confirm)
 - [ ] `readme = "README.md"` and per-crate README exists with:
