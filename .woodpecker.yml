@@ -205,6 +205,19 @@ steps:
         branch: main
     depends_on: [promote-dev]
 
+  - name: comment-github-issues
+    image: alpine:3.23
+    environment:
+      GH_TOKEN:
+        from_secret: gh_release_token
+    commands:
+      - apk add --no-cache curl jq
+      - ci/tasks/comment-github-issues
+    when:
+      - event: push
+        branch: main
+    depends_on: [mirror-github-main]
+
   - name: komodo-deploy
     image: alpine:3.23
     environment:

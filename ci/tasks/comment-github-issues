@@ -1,0 +1,33 @@
+#!/bin/sh
+set -eu
+
+: "${GH_TOKEN:?GH_TOKEN is required}"
+
+repo=AusAgentSmith-org/indexarr-rs
+comments_dir=ci/issue-comments
+
+for comment_file in "$comments_dir"/*.md; do
+    issue_number=$(basename "$comment_file" .md)
+    marker=$(sed -n 's/^<!-- \(indexarr-resolution-[^ ]*\) -->$/\1/p' "$comment_file" | head -n 1)
+    test -n "$marker"
+
+    existing=$(curl -fsS \
+        -H "Authorization: Bearer $GH_TOKEN" \
+        -H "Accept: application/vnd.github+json" \
+        "https://api.github.com/repos/$repo/issues/$issue_number/comments?per_page=100")
+
+    if printf '%s' "$existing" | jq -e --arg marker "$marker" \
+        'any(.[]; .body | contains($marker))' >/dev/null; then
+        printf 'Resolution comment already exists on issue #%s\n' "$issue_number"
+        continue
+    fi
+
+    jq -n --rawfile body "$comment_file" '{body:$body}' >/tmp/issue-comment.json
+    curl -fsS -X POST \
+        -H "Authorization: Bearer $GH_TOKEN" \
+        -H "Accept: application/vnd.github+json" \
+        -H "Content-Type: application/json" \
+        --data-binary @/tmp/issue-comment.json \
+        "https://api.github.com/repos/$repo/issues/$issue_number/comments" >/dev/null
+    printf 'Posted resolution comment on issue #%s\n' "$issue_number"
+done
