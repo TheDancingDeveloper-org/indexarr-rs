@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["*.md", "docs/**", "AGENTS.md", "CONTRIBUTING.md", "SECURITY.md"]
+  pull_request:
+    paths-ignore: ["*.md", "docs/**", "AGENTS.md", "CONTRIBUTING.md", "SECURITY.md"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: [self-hosted, node-b, linux, x64]
+    env:
+      FORGEJO_CARGO_TOKEN: ${{ secrets.FORGEJO_CARGO_TOKEN }}
+      CARGO_BUILD_JOBS: 1
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure Cargo credentials
+        shell: bash
+        run: |
+          export CARGO_HOME="$RUNNER_TEMP/cargo-home"
+          mkdir -p "$CARGO_HOME"
+          printf '[registries.forgejo]\ntoken = "Bearer %s"\n' "$FORGEJO_CARGO_TOKEN" > "$CARGO_HOME/credentials.toml"
+          chmod 600 "$CARGO_HOME/credentials.toml"
+          test -n "$FORGEJO_CARGO_TOKEN"
+          echo "CARGO_HOME=$CARGO_HOME" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97
+          components: rustfmt,clippy
+      - run: cargo fmt --all -- --check
+      - run: cargo check --workspace --all-targets --locked
+      - run: cargo test --workspace --locked
+      - run: cargo test --workspace --doc --locked
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  ui:
+    runs-on: [self-hosted, node-b, linux, x64]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - working-directory: ui
+        run: npm ci --no-audit --no-fund
+      - working-directory: ui
+        run: npm audit --audit-level=high
+      - working-directory: ui
+        run: npm run build:check
