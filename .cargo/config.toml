@@ -1,6 +1,0 @@
-[registries.forgejo]
-index = "sparse+https://repo.indexarr.net/api/packages/indexarr/cargo/"
-credential-provider = "cargo:token"
-
-[registry]
-default = "forgejo"

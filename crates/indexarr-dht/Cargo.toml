@@ -13,14 +13,14 @@ indexarr-bep51 = { path = "../indexarr-bep51" }
 indexarr-parser = { path = "../indexarr-parser" }
 indexarr-classifier = { path = "../indexarr-classifier" }
 
-# DHT library (re-exports Id20 from librtbit-core). Sourced from the Forgejo
-# cargo registry to keep all librtbit-* deps unified across the workspace
-# (resolver-v2 needs librtbit-peer-protocol which is Forgejo-only; the same
-# crate from a second registry would be treated as distinct by cargo).
-dht = { version = "0.1.4", package = "librtbit-dht", registry = "forgejo" }
-librtbit-core = { version = "0.1.5", default-features = false, registry = "forgejo" }
-bencode = { version = "0.1.5", package = "librtbit-bencode", registry = "forgejo" }
-tracker_comms = { version = "0.1.6", package = "librtbit-tracker-comms", registry = "forgejo" }
+# DHT library (re-exports Id20 from librtbit-core). Sourced from GitHub to
+# keep all librtbit-* deps unified across the workspace (resolver-v2 needs
+# librtbit-peer-protocol which is GitHub-only; the same crate from a second
+# source would be treated as distinct by cargo).
+dht = { git = "https://github.com/TheDancingDeveloper-org/librtbit-dht.git", package = "librtbit-dht" }
+librtbit-core = { git = "https://github.com/TheDancingDeveloper-org/librtbit-core.git", default-features = false }
+bencode = { git = "https://github.com/TheDancingDeveloper-org/librtbit-bencode.git", package = "librtbit-bencode" }
+tracker_comms = { git = "https://github.com/TheDancingDeveloper-org/librtbit-tracker-comms.git", package = "librtbit-tracker-comms" }
 
 # BEP 9 metadata fetcher (workspace-internal).
 indexarr-resolver-v2 = { path = "../indexarr-resolver-v2" }
