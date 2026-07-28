@@ -2058,8 +2058,7 @@ dependencies = [
 [[package]]
 name = "librtbit-bencode"
 version = "0.1.5"
-source = "sparse+https://repo.indexarr.net/api/packages/indexarr/cargo/"
-checksum = "e7d35dd07182c2bc219e499bbbe8fa6ce059331767f46cd75cc144608b15840b"
+source = "git+https://github.com/TheDancingDeveloper-org/librtbit-bencode.git#255c93423c6fc86da5d9227457da28c8c1f3fdd6"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -2075,8 +2074,7 @@ dependencies = [
 [[package]]
 name = "librtbit-buffers"
 version = "0.1.2"
-source = "sparse+https://repo.indexarr.net/api/packages/indexarr/cargo/"
-checksum = "a3c284674535972fd7693f515f1d12c8ca20b5a2c37a03020bdeca32241cf29c"
+source = "git+https://github.com/TheDancingDeveloper-org/librtbit-buffers.git#60fde393b379face7c0acfe7f654a1a5ae3f3731"
 dependencies = [
  "bytes",
  "librtbit-clone-to-owned",
@@ -2087,8 +2085,7 @@ dependencies = [
 [[package]]
 name = "librtbit-clone-to-owned"
 version = "0.1.1"
-source = "sparse+https://repo.indexarr.net/api/packages/indexarr/cargo/"
-checksum = "652077f668126ff93bf2c61fbfc88a38b60b9e50c1edc440a72c2a9a5b614459"
+source = "git+https://github.com/TheDancingDeveloper-org/librtbit-clone-to-owned.git#6944f73c91e9a4cc3be7694f864c5c06012066fc"
 dependencies = [
  "bytes",
 ]
@@ -2096,8 +2093,7 @@ dependencies = [
 [[package]]
 name = "librtbit-core"
 version = "0.1.5"
-source = "sparse+https://repo.indexarr.net/api/packages/indexarr/cargo/"
-checksum = "5666666c2bd8714347ae0f68fbfef885d4ae28446a26c394e0a8a43ccb78238d"
+source = "git+https://github.com/TheDancingDeveloper-org/librtbit-core.git#486540bb77448ae50df5e2ca846aa0caeef5314e"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2126,8 +2122,7 @@ dependencies = [
 [[package]]
 name = "librtbit-dht"
 version = "0.1.4"
-source = "sparse+https://repo.indexarr.net/api/packages/indexarr/cargo/"
-checksum = "d9fb1b5d2c7905457647ae6d6f02a5de2401b708eece095850759c1026507159"
+source = "git+https://github.com/TheDancingDeveloper-org/librtbit-dht.git#05f1aa116e767a8020cd459cd43fdd5907c55ada"
 dependencies = [
  "anyhow",
  "aws-lc-rs",
@@ -2159,8 +2154,7 @@ dependencies = [
 [[package]]
 name = "librtbit-peer-protocol"
 version = "0.1.4"
-source = "sparse+https://repo.indexarr.net/api/packages/indexarr/cargo/"
-checksum = "256461f7844da8da709c246ec77b3e1a0b6694156f966d4d9b6193ea1576bb57"
+source = "git+https://github.com/TheDancingDeveloper-org/librtbit-peer-protocol.git#f91f07946002b9348d7d8c9378cf3b5206f77160"
 dependencies = [
  "anyhow",
  "bitvec",
@@ -2179,9 +2173,8 @@ dependencies = [
 
 [[package]]
 name = "librtbit-sha1-wrapper"
-version = "0.1.2"
-source = "sparse+https://repo.indexarr.net/api/packages/indexarr/cargo/"
-checksum = "2a49584e920ec499c2ea310f636b56169bad910a2be2920429c2964f81df2f53"
+version = "0.1.1"
+source = "git+https://github.com/TheDancingDeveloper-org/librtbit-sha1-wrapper.git#26062b9c6d4e73ad8b061f366d01056d401e467b"
 dependencies = [
  "assert_cfg",
  "crypto-hash",
@@ -2190,8 +2183,7 @@ dependencies = [
 [[package]]
 name = "librtbit-tracker-comms"
 version = "0.1.6"
-source = "sparse+https://repo.indexarr.net/api/packages/indexarr/cargo/"
-checksum = "576c8f588202c6b51000980f084f59810810ca576e7d78568332e08f193fd95a"
+source = "git+https://github.com/TheDancingDeveloper-org/librtbit-tracker-comms.git#96580fb94839b71fd2ebbfb11dded5d93c53e808"
 dependencies = [
  "anyhow",
  "async-stream",

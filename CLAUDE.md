@@ -62,7 +62,7 @@ indexarr-xmpp        XMPP/MUC peer discovery (XEP-0045 join, XEP-0077 register),
 
 ## Production deployments
 
-All managed via Komodo (`indexarr/ops`). Image is `ghcr.io/ausagentsmith-org/indexarr-rs:<sha>`; Komodo pulls via the `AusAgentSmith` GHCR registry account.
+All managed via Komodo (`indexarr/ops`). Image is `ghcr.io/thedancingdeveloper-org/indexarr-rs:<sha>`; the historical Forgejo image remains only as a rollback artifact during migration soak.
 
 | Stack | Periphery | URL | Workers | Purpose |
 |-------|-----------|-----|---------|---------|
@@ -94,17 +94,17 @@ All prefixed with `INDEXARR_`. See `crates/indexarr-core/src/config.rs` for the 
 
 ## CI / release
 
-Woodpecker (`ci.indexarr.net`) — pipeline at `.woodpecker.yml`.
+GitHub Actions — workflows under `.github/workflows/`.
 
 | Trigger | Steps that fire |
 |---------|-----------------|
-| `push: main` | fmt, check, test, clippy, build-and-push (GHCR `latest` + `<sha>`), komodo-deploy → Node B |
-| `tag` | the above PLUS build-ui, build-linux, build-windows, NSIS installer, github-release, discord-release (changelog webhook) |
-| `pull_request` | fmt, check, test, clippy |
+| `push: main` | Rust/UI CI, migration policy, and immutable GHCR container publication |
+| `tag` | Rust/UI CI, migration policy, multi-arch GHCR publication, and GitHub release workflow |
+| `pull_request` | Rust/UI CI and migration policy |
 
 Linux/Windows binary builds are tag-only — saves ~10 min per main push.
 
-`gh_release_token` org secret has `read:packages` so Komodo pulls private GHCR images.
+The canonical GHCR package is public and Komodo pins immutable SHA tags.
 
 ## Tests
 

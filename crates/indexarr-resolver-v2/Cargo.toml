@@ -9,16 +9,17 @@ description = "BEP 9 metadata-fetch orchestrator for indexarr-rs, layered on lib
 workspace = true
 
 [dependencies]
-# All librtbit-* deps must be unified on the Forgejo registry — see .cargo/config.toml
+# All librtbit-* deps must be unified on the same source — see .cargo/config.toml
 # and bep-uplift.md Phase A inventory. cargo treats the same crate@version sourced
-# from crates.io vs Forgejo as two distinct crates, which breaks trait coherence.
-peer_protocol = { version = "0.1.4", package = "librtbit-peer-protocol", registry = "forgejo" }
+# from two different places (e.g. crates.io vs git) as two distinct crates, which
+# breaks trait coherence.
+peer_protocol = { git = "https://github.com/TheDancingDeveloper-org/librtbit-peer-protocol.git", package = "librtbit-peer-protocol" }
 
 # BEP 28 lt_tex codec (workspace-internal, staging for upstreaming).
 indexarr-bep28 = { path = "../indexarr-bep28" }
-librtbit-core = { version = "0.1.5", default-features = false, registry = "forgejo" }
-buffers = { version = "0.1.2", package = "librtbit-buffers", registry = "forgejo" }
-bencode = { version = "0.1.5", package = "librtbit-bencode", registry = "forgejo" }
+librtbit-core = { git = "https://github.com/TheDancingDeveloper-org/librtbit-core.git", default-features = false }
+buffers = { git = "https://github.com/TheDancingDeveloper-org/librtbit-buffers.git", package = "librtbit-buffers" }
+bencode = { git = "https://github.com/TheDancingDeveloper-org/librtbit-bencode.git", package = "librtbit-bencode" }
 
 tokio = { workspace = true }
 thiserror = { workspace = true }

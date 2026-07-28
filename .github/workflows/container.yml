@@ -49,8 +49,6 @@ jobs:
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: ''
           cache-to: ''
-          secrets: |
-            git_auth_token=${{ secrets.FORGEJO_CARGO_TOKEN }}
       - name: Verify anonymous destination manifest
         shell: bash
         run: |

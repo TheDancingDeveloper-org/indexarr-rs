@@ -59,7 +59,7 @@ windows-service = "0.8"
 version = "0.3.2"
 edition = "2024"
 license = "AGPL-3.0-only"
-repository = "https://github.com/AusAgentSmith-org/indexarr-rs"
+repository = "https://github.com/TheDancingDeveloper-org/indexarr-rs"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
