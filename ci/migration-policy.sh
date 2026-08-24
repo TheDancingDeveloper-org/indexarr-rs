@@ -17,7 +17,7 @@ if [[ -n "$workflow_matches" ]]; then
 fi
 
 if [[ -n "${GITHUB_BASE_REF:-}" ]]; then
-  git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}" >/dev/null 2>&1 || true
+  git fetch --no-tags origin "${GITHUB_BASE_REF}" >/dev/null 2>&1 || true
   base="origin/${GITHUB_BASE_REF}"
   commits="$(git rev-list --reverse "$base..HEAD" 2>/dev/null || git rev-list --reverse HEAD~1..HEAD 2>/dev/null || git rev-list --reverse HEAD)"
 elif [[ "${GITHUB_EVENT_NAME:-}" == push && "${GITHUB_BEFORE:-}" != 0000000000000000000000000000000000000000 ]]; then
