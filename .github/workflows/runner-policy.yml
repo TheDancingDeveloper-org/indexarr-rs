@@ -1,0 +1,16 @@
+# Copy this file to .github/workflows/runner-policy.yml in every repository.
+#
+# It is deliberately tiny: all logic lives in the reusable workflow in
+# github-policy, so the rule can be changed in one place. After adding it, make
+# `runner-policy` a required status check on the repository's protected branch
+# — without that it reports but does not block.
+name: Runner policy
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  runner-policy:
+    uses: TheDancingDeveloper-org/github-policy/.github/workflows/runner-policy-reusable.yml@main
