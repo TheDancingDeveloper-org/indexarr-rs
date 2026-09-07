@@ -100,6 +100,13 @@ Log "Writing configuration..."
 INDEXARR_DB_URL=postgres://${PgUser}:${PgUser}@127.0.0.1:${PgPort}/${PgDb}
 INDEXARR_DATA_DIR=${DataDir}
 INDEXARR_PORT=${HttpPort}
+# Sync-only by default: the desktop install serves the web UI / Torznab and
+# syncs from peers, but does not crawl the DHT or announce to trackers. The
+# crawler advertises this machine's real public IP and port 6881 to the swarm
+# (and keeps doing so until every peer forgets it), so it is opt-in. To crawl,
+# route the machine through a VPN and set:
+#   INDEXARR_WORKERS=http_server,dht_crawler,resolver,announcer,sync
+INDEXARR_WORKERS=http_server,sync
 "@ | Set-Content "$InstallDir\.env" -Encoding ASCII
 
 Log "Setup complete."
