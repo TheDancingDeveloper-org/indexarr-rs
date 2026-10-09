@@ -5,6 +5,10 @@ torrent info-hashes from the BitTorrent DHT, resolves metadata, classifies
 content, collects tracker statistics, and exchanges signed index data with
 other contributors over a gossip-based peer-to-peer network.
 
+**Website:** [indexarr.net](https://indexarr.net/) ·
+**Live demo:** [indexarr.net/demo](https://indexarr.net/demo/) ·
+**API docs:** [indexarr.net/docs/api](https://indexarr.net/docs/api/)
+
 The project includes a Vue 3 web interface and a Torznab-compatible API for
 indexer clients such as Prowlarr and Sonarr/Radarr.
 
