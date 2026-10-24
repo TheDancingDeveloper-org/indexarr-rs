@@ -196,6 +196,12 @@ starts; no separate migration command is required.
 - [`Dockerfile`](Dockerfile) builds the Vue SPA and Rust binary in a multi-stage image.
 - [`installer/linux-install.sh`](installer/linux-install.sh) installs a Linux binary, PostgreSQL, and a systemd service.
 - `installer/windows.nsi` and `installer/setup.ps1` package the Windows binary and a bundled PostgreSQL setup.
+  The Windows service runs **sync-only** (`INDEXARR_WORKERS=http_server,sync`, the same
+  mode as `docker-compose.sync.yml`): it serves the UI and Torznab and syncs from peers
+  but does not crawl the DHT or announce to trackers, because those advertise the
+  machine's real public IP on port 6881 to every swarm it touches. To crawl from a
+  Windows install, put the machine behind a VPN and edit `INDEXARR_WORKERS` in the
+  `.env` beside `indexarr.exe`, then restart the `Indexarr` service.
 - CI workflows live under [`.github/workflows/`](.github/workflows/).
 - Version-specific changes are documented in [`RELEASE_NOTES_v0.3.2.md`](RELEASE_NOTES_v0.3.2.md) and the earlier release notes.
 

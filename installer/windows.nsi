@@ -111,10 +111,14 @@ Section "${APP_NAME}" SecMain
   DetailPrint "Registering Indexarr service..."
   ; Pass the selected port explicitly so upgrades of an existing service do
   ; not retain its previous command line or port.
-  nsExec::ExecToLog 'sc create "${SVC_NAME}" binPath= "\"$INSTDIR\${APP_EXE}\" --service --all --port $HttpPort" start= auto depend= "${PG_SVC_NAME}" DisplayName= "${APP_NAME}"'
+  ; No --all: the worker set comes from INDEXARR_WORKERS in the generated
+  ; .env (sync-only by default). A desktop install must not crawl the DHT or
+  ; announce to trackers from the machine's real public address unless the
+  ; user opts in there.
+  nsExec::ExecToLog 'sc create "${SVC_NAME}" binPath= "\"$INSTDIR\${APP_EXE}\" --service --port $HttpPort" start= auto depend= "${PG_SVC_NAME}" DisplayName= "${APP_NAME}"'
   Pop $0
   ${If} $0 != 0
-    nsExec::ExecToLog 'sc config "${SVC_NAME}" binPath= "\"$INSTDIR\${APP_EXE}\" --service --all --port $HttpPort"'
+    nsExec::ExecToLog 'sc config "${SVC_NAME}" binPath= "\"$INSTDIR\${APP_EXE}\" --service --port $HttpPort"'
     Pop $0
   ${EndIf}
   nsExec::ExecToLog 'sc description "${SVC_NAME}" "Decentralized torrent indexer"'
