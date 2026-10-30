@@ -8,6 +8,8 @@ use indexarr_identity::ContributorIdentity;
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
 
+use crate::merge::{MAGNET_FRAGMENT_PREFIXES, PLACEHOLDER_NAMES};
+
 /// Manifest describing available deltas for a peer.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Manifest {
@@ -63,9 +65,19 @@ impl DeltaExporter {
              c.network, c.quality_score \
              FROM torrents t LEFT JOIN torrent_content c ON t.info_hash = c.info_hash \
              WHERE t.resolved_at IS NOT NULL AND t.seed_count >= 1 AND t.sync_sequence IS NULL \
+             AND t.name IS NOT NULL \
+             AND lower(btrim(t.name)) <> ALL($2) \
+             AND NOT lower(btrim(t.name)) LIKE ANY($3) \
              ORDER BY t.resolved_at ASC LIMIT $1"
         )
         .bind(self.max_delta_size as i64)
+        .bind(PLACEHOLDER_NAMES)
+        .bind(
+            MAGNET_FRAGMENT_PREFIXES
+                .iter()
+                .map(|prefix| format!("{prefix}%"))
+                .collect::<Vec<_>>(),
+        )
         .fetch_all(pool)
         .await?;
 

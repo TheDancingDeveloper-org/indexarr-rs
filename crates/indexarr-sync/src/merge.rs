@@ -24,6 +24,27 @@ const MAX_COMMENTS_PER_TORRENT: usize = 500;
 #[allow(dead_code)]
 const MAX_VOTES_PER_TORRENT: usize = 5000;
 
+/// Lowercased names that say nothing about the torrent. The empty string
+/// covers blank names, because names are trimmed before comparing.
+pub(crate) const PLACEHOLDER_NAMES: &[&str] = &["", "invalid magnet", "magnet"];
+
+/// Lowercased prefixes of names that are pieces of a magnet URI, not titles.
+pub(crate) const MAGNET_FRAGMENT_PREFIXES: &[&str] = &["magnet:?", "&tr=", "&dn="];
+
+/// True when a torrent name is missing, a placeholder or part of a magnet URI.
+///
+/// `DeltaExporter::export_delta` applies the same rule in SQL.
+pub(crate) fn is_placeholder_name(name: Option<&str>) -> bool {
+    let Some(name) = name else {
+        return true;
+    };
+    let name = name.trim().to_lowercase();
+    PLACEHOLDER_NAMES.contains(&name.as_str())
+        || MAGNET_FRAGMENT_PREFIXES
+            .iter()
+            .any(|prefix| name.starts_with(prefix))
+}
+
 /// Merge a delta file into the local database.
 pub async fn merge_delta(
     pool: &PgPool,
@@ -141,6 +162,11 @@ async fn merge_record(
         && !verify_delta_signature(pubkey, signature, info_hash, name, size, record_epoch)
     {
         return Ok(MergeAction::SignatureFailed);
+    }
+
+    // Placeholder names would otherwise be stored as resolved and never fetched
+    if is_placeholder_name(name) {
+        return Ok(MergeAction::Skipped);
     }
 
     // Check if torrent exists
@@ -380,4 +406,39 @@ async fn fill_gaps(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_placeholder_name;
+
+    #[test]
+    fn rejects_missing_and_placeholder_names() {
+        for name in [
+            None,
+            Some(""),
+            Some("   "),
+            Some("Invalid Magnet"),
+            Some("  invalid magnet "),
+            Some("Magnet"),
+            Some("&tr="),
+            Some("&tr=udp://tracker.example:1337/announce"),
+            Some("&dn=Some.Title"),
+            Some("magnet:?xt=urn:btih:0f1d98fb1ea2edd1365bdf102fb67069cf3233d9"),
+        ] {
+            assert!(is_placeholder_name(name), "{name:?} should be rejected");
+        }
+    }
+
+    #[test]
+    fn keeps_real_titles() {
+        for name in [
+            "The.Voice.S17E17.WEB.x264-TRUMP",
+            "Magnet.Man.2024.1080p.WEB",
+            "Invalid Magnet Theory (2019)",
+            "S01",
+        ] {
+            assert!(!is_placeholder_name(Some(name)), "{name:?} should be kept");
+        }
+    }
 }
