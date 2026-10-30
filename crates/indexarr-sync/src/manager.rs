@@ -163,7 +163,17 @@ impl SyncManager {
                 pt.peers().map(|p| p.url.clone()).collect()
             };
 
-            let client = build_http_client(self.settings.verify_tls);
+            let client = match build_http_client(self.settings.verify_tls) {
+                Ok(client) => client,
+                Err(e) => {
+                    tracing::warn!(error = %e, "skipping discovery cycle: cannot build HTTP client");
+                    tokio::time::sleep(std::time::Duration::from_secs(
+                        self.settings.discovery_interval,
+                    ))
+                    .await;
+                    continue;
+                }
+            };
             for url in &urls {
                 if cancel.is_cancelled() {
                     break;
@@ -237,7 +247,17 @@ impl SyncManager {
                 continue;
             }
 
-            let client = build_http_client(self.settings.verify_tls);
+            let client = match build_http_client(self.settings.verify_tls) {
+                Ok(client) => client,
+                Err(e) => {
+                    tracing::warn!(error = %e, "skipping gossip cycle: cannot build HTTP client");
+                    tokio::time::sleep(std::time::Duration::from_secs(
+                        self.settings.import_interval,
+                    ))
+                    .await;
+                    continue;
+                }
+            };
 
             for peer in &targets {
                 if cancel.is_cancelled() {
@@ -386,12 +406,12 @@ impl SyncManager {
     }
 }
 
-fn build_http_client(verify_tls: bool) -> reqwest::Client {
+fn build_http_client(verify_tls: bool) -> reqwest::Result<reqwest::Client> {
     let mut builder = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .connect_timeout(std::time::Duration::from_secs(10));
     if !verify_tls {
         builder = builder.danger_accept_invalid_certs(true);
     }
-    builder.build().unwrap_or_default()
+    builder.build()
 }

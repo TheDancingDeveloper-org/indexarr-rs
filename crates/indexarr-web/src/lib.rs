@@ -1,3 +1,4 @@
+pub mod idle_timeout;
 pub mod log_capture;
 pub mod routes;
 pub mod state;
@@ -6,16 +7,23 @@ pub mod torznab;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::Router;
 use axum::extract::Request;
 use axum::http::StatusCode;
 use axum::middleware::{self, Next};
 use axum::response::{Html, IntoResponse, Json, Response};
+use axum::serve::ListenerExt;
 use tokio_util::sync::CancellationToken;
 use tower_http::cors::{Any, CorsLayer};
 
+use idle_timeout::IdleTimeoutListener;
 use state::AppState;
+
+/// How long a connection on the public sync port may sit without moving any
+/// bytes. Sync clients give up on a request after 30 seconds.
+const SYNC_CONN_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Build the full Axum application router.
 pub fn build_router(state: Arc<AppState>) -> Router {
@@ -142,7 +150,9 @@ pub async fn run_sync_server(
     tracing::info!(%addr, "public sync API listening");
 
     axum::serve(
-        listener,
+        // tap_io is a no-op; axum only provides ConnectInfo<SocketAddr> for custom
+        // listeners wrapped in TapIo.
+        IdleTimeoutListener::new(listener, SYNC_CONN_IDLE_TIMEOUT).tap_io(|_| {}),
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(async move { cancel.cancelled().await })
