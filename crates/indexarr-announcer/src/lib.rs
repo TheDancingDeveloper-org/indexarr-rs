@@ -338,10 +338,16 @@ async fn scrape_trackers(
     }
     let info_hash_id = Id20::new(hash_bytes.clone().try_into().unwrap_or([0u8; 20]));
 
-    let http_client = reqwest::Client::builder()
+    let http_client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(5))
         .build()
-        .unwrap_or_default();
+    {
+        Ok(client) => client,
+        Err(e) => {
+            tracing::warn!(error = %e, "skipping tracker scrape: cannot build HTTP client");
+            return (0, 0);
+        }
+    };
 
     let mut best = (0i32, 0i32);
     for tracker_url in trackers {
