@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::net::IpAddr;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -27,10 +28,39 @@ impl PeerInfo {
     }
 }
 
+/// Whether a URL learned from another node can reach a remote peer.
+///
+/// Wildcard and loopback addresses are only meaningful on the node that
+/// advertised them. Dialing one here reaches this node, so it would end up
+/// merging its own deltas.
+fn is_dialable_peer_url(url: &str) -> bool {
+    let Ok(parsed) = reqwest::Url::parse(url) else {
+        return false;
+    };
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return false;
+    }
+    let Some(host) = parsed.host_str() else {
+        return false;
+    };
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    match host.parse::<IpAddr>() {
+        Ok(ip) => {
+            let ip = ip.to_canonical();
+            !ip.is_unspecified() && !ip.is_loopback()
+        }
+        Err(_) => {
+            let host = host.to_ascii_lowercase();
+            host != "localhost" && !host.ends_with(".localhost")
+        }
+    }
+}
+
 /// Manages the sync peer table with reputation tracking and tiered eviction.
 pub struct PeerTable {
     peers: HashMap<String, PeerInfo>,
     url_index: HashMap<String, String>,
+    local_contributor_id: Option<String>,
     max_peers: usize,
     reputation_initial: f64,
     reputation_max: f64,
@@ -53,6 +83,7 @@ impl PeerTable {
         Self {
             peers: HashMap::new(),
             url_index: HashMap::new(),
+            local_contributor_id: None,
             max_peers,
             reputation_initial,
             reputation_max,
@@ -63,8 +94,26 @@ impl PeerTable {
         }
     }
 
-    /// Add or update a peer. Returns false if table is full and can't evict.
+    /// Set this node's contributor ID so discovery never adds it as a peer.
+    pub fn set_local_contributor(&mut self, contributor_id: Option<String>) {
+        self.local_contributor_id = contributor_id;
+    }
+
+    /// Whether a discovered peer is usable. Bootstrap peers come from local
+    /// configuration, so an operator can still point one at a local address.
+    fn accepts_peer(&self, peer_id: &str, url: &str, source: &str) -> bool {
+        source == "bootstrap"
+            || (self.local_contributor_id.as_deref() != Some(peer_id) && is_dialable_peer_url(url))
+    }
+
+    /// Add or update a peer. Returns false if the peer is this node or
+    /// unreachable, or if the table is full and can't evict.
     pub fn add_peer(&mut self, peer_id: &str, url: &str, source: &str) -> bool {
+        if !self.accepts_peer(peer_id, url, source) {
+            tracing::debug!(peer_id, url, source, "ignoring unusable sync peer");
+            return false;
+        }
+
         // Dedup by URL
         if self.url_index.contains_key(url) {
             return true;
@@ -255,10 +304,15 @@ impl PeerTable {
                 continue;
             }
 
+            let source: String = row.get("source");
+            if !self.accepts_peer(&peer_id, &url, &source) {
+                continue;
+            }
+
             let peer = PeerInfo {
                 peer_id: peer_id.clone(),
                 url: url.clone(),
-                source: row.get("source"),
+                source,
                 last_seen: row
                     .get::<Option<DateTime<Utc>>, _>("last_sync_at")
                     .unwrap_or_else(Utc::now),
@@ -290,4 +344,84 @@ impl PeerTable {
 fn sha256_hex(data: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     hex::encode(Sha256::digest(data))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn table() -> PeerTable {
+        let mut table = PeerTable::new(10, 100.0, 10000.0, 20.0, 10.0, 0.1, 5.0);
+        table.set_local_contributor(Some("TN-self".to_string()));
+        table
+    }
+
+    #[test]
+    fn local_addresses_are_not_dialable() {
+        for url in [
+            "http://0.0.0.0:8080",
+            "http://0:8080",
+            "http://127.0.0.1:8080",
+            "http://127.1.2.3:8080",
+            "http://[::]:8080",
+            "http://[::1]:8080",
+            "http://[::ffff:127.0.0.1]:8080",
+            "http://localhost:8080",
+            "http://LOCALHOST:8080",
+            "http://node.localhost:8080",
+        ] {
+            assert!(!is_dialable_peer_url(url), "{url}");
+        }
+    }
+
+    #[test]
+    fn malformed_urls_are_not_dialable() {
+        for url in ["", "not a url", "ftp://peer.example:21", "http://"] {
+            assert!(!is_dialable_peer_url(url), "{url}");
+        }
+    }
+
+    #[test]
+    fn remote_addresses_are_dialable() {
+        for url in [
+            "https://bootstrap.indexarr.net",
+            "http://198.51.100.20:8080",
+            "http://100.64.0.1:8080",
+            "http://192.168.1.20:8080",
+            "http://[2001:db8::2]:8080",
+            "http://localhost.example:8080",
+        ] {
+            assert!(is_dialable_peer_url(url), "{url}");
+        }
+    }
+
+    #[test]
+    fn discovery_skips_local_urls_and_this_node() {
+        let mut table = table();
+        assert!(!table.add_peer("TN-other", "http://0.0.0.0:8080", "pex"));
+        assert!(!table.add_peer("TN-other", "http://127.0.0.1:8080", "xmpp"));
+        assert!(!table.add_peer("TN-self", "http://203.0.113.10:8080", "pex"));
+        assert_eq!(table.peer_count(), 0);
+
+        assert!(table.add_peer("TN-other", "http://198.51.100.20:8080", "pex"));
+        assert_eq!(table.peer_count(), 1);
+    }
+
+    #[test]
+    fn configured_bootstrap_peers_may_be_local() {
+        let mut table = table();
+        table.add_bootstrap_peers(&["http://localhost:8080".to_string()]);
+        assert_eq!(table.peer_count(), 1);
+    }
+
+    #[test]
+    fn unusable_peer_cannot_replace_a_known_url() {
+        let mut table = table();
+        assert!(table.add_peer("TN-other", "http://198.51.100.20:8080", "pex"));
+        assert!(!table.add_peer("TN-other", "http://0.0.0.0:8080", "pex"));
+        assert_eq!(
+            table.peers().next().unwrap().url,
+            "http://198.51.100.20:8080"
+        );
+    }
 }
