@@ -93,7 +93,14 @@ impl SyncManager {
 
         // Load peer table + bootstrap
         {
+            let contributor_id = self
+                .identity
+                .read()
+                .await
+                .contributor_id()
+                .map(str::to_string);
             let mut pt = self.peer_table.write().await;
+            pt.set_local_contributor(contributor_id);
             let _ = pt.load(&self.pool).await;
             pt.add_bootstrap_peers(&self.settings.sync_peers);
         }
