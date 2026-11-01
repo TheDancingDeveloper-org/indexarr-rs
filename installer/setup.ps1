@@ -96,10 +96,33 @@ Remove-Item $passTmp -ErrorAction SilentlyContinue
 
 # ── 6. Write .env ─────────────────────────────────────────────────────────────
 Log "Writing configuration..."
+# The installer rewrites .env on every upgrade. Keep an explicit
+# INDEXARR_WORKERS line so an operator who opted in to crawling is not reset
+# to sync-only. Without an explicit line (fresh install, or an upgrade from a
+# version that never wrote one) the service runs sync-only: the binary's own
+# default is every worker, including the crawler, which is not an opt-in.
+$envPath = "$InstallDir\.env"
+$workersLine = $null
+if (Test-Path $envPath) {
+    $found = Select-String -Path $envPath -Pattern '^\s*INDEXARR_WORKERS\s*=' -ErrorAction SilentlyContinue | Select-Object -Last 1
+    if ($found) { $workersLine = $found.Line.Trim() }
+}
+if ($workersLine) {
+    Log "Keeping existing worker setting: $workersLine"
+    $workersBlock = $workersLine
+} else {
+    # Sync-only: serves the web UI / Torznab and syncs from peers, but does not
+    # crawl the DHT or announce to trackers, which would advertise this machine's
+    # real public IP and port 6881 to the swarm. To crawl, route the machine
+    # through a VPN and set:
+    #   INDEXARR_WORKERS=http_server,dht_crawler,resolver,announcer,sync
+    $workersBlock = "INDEXARR_WORKERS=http_server,sync"
+}
 @"
 INDEXARR_DB_URL=postgres://${PgUser}:${PgUser}@127.0.0.1:${PgPort}/${PgDb}
 INDEXARR_DATA_DIR=${DataDir}
 INDEXARR_PORT=${HttpPort}
+$workersBlock
 "@ | Set-Content "$InstallDir\.env" -Encoding ASCII
 
 Log "Setup complete."
