@@ -218,25 +218,6 @@ steps:
         branch: main
     depends_on: [mirror-github-main]
 
-  - name: komodo-deploy
-    image: alpine:3.23
-    environment:
-      GIT_AUTH_TOKEN:
-        from_secret: git_auth_token
-      KOMODO_API_KEY:
-        from_secret: komodo_api_key
-      KOMODO_API_SECRET:
-        from_secret: komodo_api_secret
-      KOMODO_URL: http://100.92.54.45:3011
-    commands:
-      - apk add --no-cache bash git curl python3 >/dev/null
-      - 'curl -sSf -H "Authorization: token $GIT_AUTH_TOKEN" -o /tmp/komodo-deploy.sh https://repo.indexarr.net/indexarr/ops/raw/branch/main/scripts/komodo-deploy.sh'
-      - chmod +x /tmp/komodo-deploy.sh
-      - STACK_NAME=prod-indexarr STACK_DIR=prod/indexarr IMAGE_NAME=repo.indexarr.net/indexarr/indexarr-rs IMAGE_TAG=$CI_COMMIT_SHA bash /tmp/komodo-deploy.sh
-    when:
-      - event: manual
-        branch: main
-    depends_on: [promote-dev]
 
   # Tagged releases build per-architecture immutable candidates.
   - name: build-release-amd64
